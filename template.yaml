@@ -1094,22 +1094,6 @@ Resources:
         Version: '2012-10-17'
       Queues:
         - !Ref EditAccountApiKeyQueue
-  PaymentSuccessTopicToProcessPaymentQueueConnector:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Resource: !GetAtt ProcessPaymentQueue.Arn
-            Action: sqs:SendMessage
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref PaymentSuccessTopic
-        Version: '2012-10-17'
-      Queues:
-        - !Ref ProcessPaymentQueue
 
 Metadata:
   AWS::Composer::Groups:
