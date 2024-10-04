@@ -19,9 +19,8 @@ confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "api-access-manager"
 region = "us-east-1"
-parameter_overrides = "NotificationEmail=\"matthewsweeney001@gmail.com\" EventBusName=\"CustomEventBus\" Environment=\"prod\""
+parameter_overrides = "NotificationEmail=\"matthewsweeney001@gmail.com\""
 image_repositories = []
-stack_name = "api-access-manager"
 
 [default.package.parameters]
 resolve_s3 = true

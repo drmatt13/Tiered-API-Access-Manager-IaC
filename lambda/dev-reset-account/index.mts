@@ -76,7 +76,7 @@ export const handler = async (
       new UpdateItemCommand({
         TableName: process.env.APIKEYSTABLE_TABLE_NAME || "",
         Key: { user_id: { S: userId } },
-        UpdateExpression: "SET #tier = :tier, api_key = :apiKey",
+        UpdateExpression: "SET #tier = :tier, apiKey = :apiKey",
         ExpressionAttributeNames: {
           "#tier": "tier",
         },
