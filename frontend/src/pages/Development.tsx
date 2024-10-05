@@ -95,7 +95,7 @@ function Page() {
 
   return (
     <>
-      <div className="w-full h-screen min-h-[33rem] flex flex-col items-center justify-center">
+      <div className="w-full h-full min-h-screen flex flex-col justify-center items-center p-8">
         <div className="w-52 flex flex-col items-center">
           <h1 className="text-3xl font-bold font-mono mb-4">Development</h1>
           <button

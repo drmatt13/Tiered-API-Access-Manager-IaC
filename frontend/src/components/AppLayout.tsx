@@ -14,23 +14,21 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   return (
     <>
-      <CloudsBackground />
-      <div className="w-full h-screen relative text-white">
-        <div>
-          <div
-            className={`${
-              !["/login", "/register"].includes(location.pathname)
-                ? "bg-black/20"
-                : "bg-black/0"
-            } min-h-[30rem] absolute top-0 left-0 w-screen h-screen z-10 pointer-events-none transition-colors ease-out duration-[400ms]`}
-          />
-          <img
-            className={`min-h-[30rem] w-full h-full object-cover absolute top-0 left-0 z-0 pointer-events-none transition-all ease-out duration-[400ms]`}
-            src={background}
-            alt="background"
-          />
-        </div>
-        <div className="z-10 absolute top-0 w-full min-h-[30rem] ">
+      <div className="min-h-screen relative flex flex-col items-center justify-center text-white">
+        <CloudsBackground />
+        <div
+          className={`${
+            !["/login", "/register"].includes(location.pathname)
+              ? "bg-black/20"
+              : "bg-black/0"
+          } h-full absolute top-0 left-0 w-screen object-cover pointer-events-none transition-colors ease-out duration-[400ms]`}
+        />
+        <img
+          className={`h-full absolute top-0 left-0 w-screen object-cover -z-10 pointer-events-none`}
+          src={background}
+          alt="background"
+        />
+        <div className="w-full mx-auto overflow-hidden /p-8 z-10">
           {children}
         </div>
       </div>

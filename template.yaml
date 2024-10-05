@@ -141,7 +141,7 @@ Resources:
       FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
       Principal: cognito-idp.amazonaws.com
       SourceArn: !GetAtt UserPool.Arn
-  # ^ Resourece based policies to allow Cognito to invoke the Lambda function
+  # ^ Resourece-based policies to allow Cognito to invoke the Lambda function
 
   # API --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   Api:
@@ -848,6 +848,13 @@ Resources:
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt AdjustThrottlingForApiKeyDLQ.QueueName
+      Events:
+        ApiKeysTable:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt ApiKeysTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -892,6 +899,10 @@ Resources:
   # SNS Topics --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   AccountCreatedTopic:
     Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !GetAtt EditAccountApiKeyQueue.Arn
+          Protocol: sqs
   PaymentSuccessTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -902,6 +913,12 @@ Resources:
           Protocol: sqs
   PaymentFailureTopic:
     Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !GetAtt ProcessPaymentQueue.Arn
+          Protocol: sqs
+        - Endpoint: !GetAtt EditAccountApiKeyQueue.Arn
+          Protocol: sqs
   CloudWatchAlarmTopic:
     Type: AWS::SNS::Topic
 
@@ -980,8 +997,63 @@ Resources:
     Properties:
       MessageRetentionPeriod: 345600
 
-  #  SQS Resource Based Policies --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+  #  SQS Resource-based Policies --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  EditAccountApiKeyQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref EditAccountApiKeyQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt EditAccountApiKeyQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref PaymentSuccessTopic
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt EditAccountApiKeyQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref AccountCreatedTopic
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt EditAccountApiKeyQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref PaymentFailureTopic
+  ProcessPaymentQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref ProcessPaymentQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt ProcessPaymentQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref PaymentSuccessTopic
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt ProcessPaymentQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref PaymentFailureTopic
 
   #  CloudWatch  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   CloudWatchAlarmTopicSubscription:
@@ -1076,41 +1148,6 @@ Resources:
         - !Ref CloudWatchAlarmTopic
       TreatMissingData: notBreaching
 
-  # UNORGANIZED --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-  PaymentSuccessTopicToEditAccountApiKeyQueueConnector:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Resource: !GetAtt EditAccountApiKeyQueue.Arn
-            Action: sqs:SendMessage
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref PaymentSuccessTopic
-        Version: '2012-10-17'
-      Queues:
-        - !Ref EditAccountApiKeyQueue
-  PaymentSuccessTopicToProcessPaymentQueueConnector:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Resource: !GetAtt ProcessPaymentQueue.Arn
-            Action: sqs:SendMessage
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref PaymentSuccessTopic
-        Version: '2012-10-17'
-      Queues:
-        - !Ref ProcessPaymentQueue
-
 Metadata:
   AWS::Composer::Groups:
     Group:
@@ -1130,6 +1167,7 @@ Metadata:
         - UserPool
         - CognitoCustomMessageFunction
         - CognitoPostConfirmationFunction
+        - PreSignUpFunction
     Group3:
       Label: SNS Topics
       Members:
@@ -1180,6 +1218,7 @@ Metadata:
         - EditAccountApiKeyQueue
         - ProcessPaymentQueue
         - Group12
+        - Group5
     Group9:
       Label: Email When Alarm Is Invoked
       Members:
@@ -1190,3 +1229,8 @@ Metadata:
       Members:
         - DailyBillingSchedule
         - DailyBillingQueue
+    Group5:
+      Label: SQS Resource-based Policies
+      Members:
+        - EditAccountApiKeyQueuePolicy
+        - ProcessPaymentQueuePolicy

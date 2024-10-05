@@ -18,7 +18,7 @@ function Home() {
 
   return (
     <>
-      <div className="w-full h-screen min-h-[33rem] flex flex-col items-center justify-center">
+      <div className="w-full h-full min-h-screen flex flex-col justify-center items-center p-8 pb-14">
         <div className="absolute bottom-4 right-4">
           <Link
             className={`${

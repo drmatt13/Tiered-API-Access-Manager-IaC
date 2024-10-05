@@ -7,7 +7,7 @@ import "../css/scroll.css";
 import SessionContext from "../context/SessionContext";
 
 const LogModal = () => {
-  const [showLogs, setShowLogs] = useState(true);
+  const [showLogs, setShowLogs] = useState(false);
 
   const { sessionData } = useContext(SessionContext);
 

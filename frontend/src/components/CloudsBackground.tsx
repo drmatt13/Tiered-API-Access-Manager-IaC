@@ -13,7 +13,7 @@ const CloudsBackground = () => {
           !["/login", "/register"].includes(location.pathname)
             ? "opacity-0"
             : "opacity-100"
-        }  z-10 absolute top-0 left-0 w-full h-full min-h-[33rem] bg-black/10 overflow-hidden will-change-auto transition-opacity duration-300 ease-out`}
+        }  z-10 absolute top-0 left-0 w-full h-full min-h-screen bg-black/10 overflow-hidden will-change-auto transition-opacity duration-300 ease-out`}
       >
         <div id="foglayer_01" className="fog">
           <div className="image01"></div>
