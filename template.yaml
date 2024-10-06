@@ -831,39 +831,6 @@ Resources:
           - '@aws-sdk/*'
           - aws-sdk
         Minify: false
-  AdjustThrottlingForApiKeyFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/adjust-throttling-for-api-key
-      Handler: index.handler
-      Runtime: nodejs20.x
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt AdjustThrottlingForApiKeyDLQ.Arn
-      Environment:
-        Variables:
-          ADJUSTTHROTTLINGFORAPIKEYDLQ_QUEUE_NAME: !GetAtt AdjustThrottlingForApiKeyDLQ.QueueName
-          ADJUSTTHROTTLINGFORAPIKEYDLQ_QUEUE_ARN: !GetAtt AdjustThrottlingForApiKeyDLQ.Arn
-          ADJUSTTHROTTLINGFORAPIKEYDLQ_QUEUE_URL: !Ref AdjustThrottlingForApiKeyDLQ
-      Policies:
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt AdjustThrottlingForApiKeyDLQ.QueueName
-      Events:
-        ApiKeysTable:
-          Type: DynamoDB
-          Properties:
-            Stream: !GetAtt ApiKeysTable.StreamArn
-            StartingPosition: TRIM_HORIZON
-            BatchSize: 1
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
   EditAccountApiKeyFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -984,10 +951,6 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       MessageRetentionPeriod: 345600
-  AdjustThrottlingForApiKeyDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 345600
   CognitoPostConfirmationDLQ:
     Type: AWS::SQS::Queue
     Properties:
@@ -1096,23 +1059,6 @@ Resources:
       AlarmActions:
         - !Ref CloudWatchAlarmTopic
       TreatMissingData: notBreaching
-  AdjustThrottlingForApiKeyDLQAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Triggers when there is at least one message in the DLQ
-      Namespace: AWS/SQS
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt AdjustThrottlingForApiKeyDLQ.QueueName
-      Statistic: Sum
-      Period: 60
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      AlarmActions:
-        - !Ref CloudWatchAlarmTopic
-      TreatMissingData: notBreaching
   CognitoConfirmationDLQAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1139,6 +1085,62 @@ Resources:
       Dimensions:
         - Name: QueueName
           Value: !GetAtt DailyBillingDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref CloudWatchAlarmTopic
+      TreatMissingData: notBreaching
+  DynamoDbStreamApiKeyHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/dynamodb-stream-api-key-handler
+      Handler: index.handler
+      Runtime: nodejs20.x
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.Arn
+      Environment:
+        Variables:
+          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_NAME: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
+          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_ARN: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.Arn
+          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_URL: !Ref DynamoDbStreamApiKeyHandlerDLQ
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
+      Events:
+        ApiKeysTable:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt ApiKeysTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+      MemorySize: 3008
+      Timeout: 30
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  DynamoDbStreamApiKeyHandlerDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+  DynamoDbStreamApiKeyHandlerDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when there is at least one message in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
       Statistic: Sum
       Period: 60
       EvaluationPeriods: 1
@@ -1181,14 +1183,14 @@ Metadata:
         - DailyBillingFunction
         - EditAccountApiKeyFunction
         - ProcessPaymentFunction
-        - AdjustThrottlingForApiKeyFunction
+        - DynamoDbStreamApiKeyHandlerFunction
     Group6:
       Label: DLQ's
       Members:
         - EditAccountApiKeyDLQ
         - ProcessPaymentDLQ
         - CognitoPostConfirmationDLQ
-        - AdjustThrottlingForApiKeyDLQ
+        - DynamoDbStreamApiKeyHandlerDLQ
         - DailyBillingDLQ
     Group7:
       Label: DynamoDB Tables
@@ -1208,7 +1210,7 @@ Metadata:
       Label: CloudWatch DLQ Alarms
       Members:
         - EditAccountApiKeyDLQAlarm
-        - AdjustThrottlingForApiKeyDLQAlarm
+        - DynamoDbStreamApiKeyHandlerDLQAlarm
         - ProcessPaymentDLQAlarm
         - CognitoConfirmationDLQAlarm
         - DailyBillingDLQAlarm
