@@ -1,5 +1,5 @@
 {
-  "name": "dev-invoke-daily-billing",
+  "name": "payment-failure",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.651.1",
-    "@aws-sdk/client-sqs": "^3.664.0",
     "esbuild": "^0.23.1"
   }
 }

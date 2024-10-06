@@ -61,7 +61,7 @@ export type FormatAccountResponse = {
   error?: DynamoDBError | Error;
 };
 
-export type InvokeDailyBillingResponse = {
+export type InvokeRenewSubscriptionsResponse = {
   success: boolean;
   error?: DynamoDBError | Error;
 };

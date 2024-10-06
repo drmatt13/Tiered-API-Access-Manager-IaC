@@ -56,7 +56,10 @@ const serviceMap: Record<
   // Development Services
   CreateTestUser: { method: "GET", path: "/dev-create-test-user" },
   FormatAccount: { method: "GET", path: "/dev-format-account" },
-  InvokeDailyBilling: { method: "GET", path: "/dev-invoke-daily-billing" },
+  InvokeRenewSubscriptions: {
+    method: "GET",
+    path: "/dev-invoke-renew-subscriptions",
+  },
   ResetAccount: { method: "GET", path: "/dev-reset-account" },
   PollAllPayments: {
     method: "GET",

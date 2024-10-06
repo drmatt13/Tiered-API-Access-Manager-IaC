@@ -11,7 +11,7 @@ type Service =
   // Development Services
   | "CreateTestUser"
   | "FormatAccount"
-  | "InvokeDailyBilling"
+  | "InvokeRenewSubscriptions"
   | "ResetAccount"
   | "PollAllPayments";
 
@@ -25,7 +25,7 @@ import {
   EditAccountCreditCardResponse,
   GetAccountPaymentHistoryResponse,
   CreateTestUserResponse,
-  InvokeDailyBillingResponse,
+  InvokeRenewSubscriptionsResponse,
   FormatAccountResponse,
   ResetAccountResponse,
   PollAllPaymentsResponse,
@@ -49,7 +49,7 @@ type ServicePayloadMap = {
   // Development Services
   CreateTestUser: undefined;
   FormatAccount: undefined;
-  InvokeDailyBilling: undefined;
+  InvokeRenewSubscriptions: undefined;
   ResetAccount: undefined;
   PollAllPayments: undefined;
 };
@@ -67,7 +67,7 @@ type ServiceResponseMap = {
   // Development Services
   CreateTestUser: CreateTestUserResponse;
   FormatAccount: FormatAccountResponse;
-  InvokeDailyBilling: InvokeDailyBillingResponse;
+  InvokeRenewSubscriptions: InvokeRenewSubscriptionsResponse;
   ResetAccount: ResetAccountResponse;
   PollAllPayments: PollAllPaymentsResponse;
 };

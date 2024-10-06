@@ -19,10 +19,10 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    console.log(`Queue URL:`, process.env.DAILYBILLINGQUEUE_QUEUE_URL);
+    console.log(`Queue URL:`, process.env.RENEWSUBSCRIPTIONSQUEUE_QUEUE_URL);
 
     const params: SendMessageCommandInput = {
-      QueueUrl: process.env.DAILYBILLINGQUEUE_QUEUE_URL || "",
+      QueueUrl: process.env.RENEWSUBSCRIPTIONSQUEUE_QUEUE_URL || "",
       MessageBody: JSON.stringify({
         message: "Daily billing process initiated.",
       }),

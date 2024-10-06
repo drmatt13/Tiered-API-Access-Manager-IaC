@@ -27,6 +27,7 @@ Outputs:
 
 Resources:
 
+  # TEMP COGNITO Functions --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   PreSignUpFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -49,6 +50,7 @@ Resources:
       FunctionName: !GetAtt PreSignUpFunction.Arn
       Principal: cognito-idp.amazonaws.com
       SourceArn: !GetAtt UserPool.Arn
+
   # COGNITO --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -258,12 +260,12 @@ Resources:
               responses: {}
               security:
                 - CognitoAuthorizer: []
-          /dev-invoke-daily-billing:
+          /dev-invoke-renew-subscriptions:
             get:
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${InvokeDailyBillingFunction.Arn}/invocations
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${InvokeRenewSubscriptionsFunction.Arn}/invocations
               responses: {}
               security:
                 - CognitoAuthorizer: []
@@ -727,10 +729,10 @@ Resources:
           - '@aws-sdk/*'
           - aws-sdk
         Minify: false
-  InvokeDailyBillingFunction:
+  InvokeRenewSubscriptionsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambda/dev-invoke-daily-billing
+      CodeUri: lambda/dev-invoke-renew-subscriptions
       Handler: index.handler
       Runtime: nodejs20.x
       Events:
@@ -742,12 +744,12 @@ Resources:
             RestApiId: !Ref Api
       Environment:
         Variables:
-          DAILYBILLINGQUEUE_QUEUE_NAME: !GetAtt DailyBillingQueue.QueueName
-          DAILYBILLINGQUEUE_QUEUE_ARN: !GetAtt DailyBillingQueue.Arn
-          DAILYBILLINGQUEUE_QUEUE_URL: !Ref DailyBillingQueue
+          RENEWSUBSCRIPTIONSQUEUE_QUEUE_NAME: !GetAtt RenewSubscriptionsQueue.QueueName
+          RENEWSUBSCRIPTIONSQUEUE_QUEUE_ARN: !GetAtt RenewSubscriptionsQueue.Arn
+          RENEWSUBSCRIPTIONSQUEUE_QUEUE_URL: !Ref RenewSubscriptionsQueue
       Policies:
         - SQSSendMessagePolicy:
-            QueueName: !GetAtt DailyBillingQueue.QueueName
+            QueueName: !GetAtt RenewSubscriptionsQueue.QueueName
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -758,79 +760,296 @@ Resources:
           - aws-sdk
         Minify: false
 
+  # SNS Topics --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  AccountCreatedTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !GetAtt EditAccountApiKeyQueue.Arn
+          Protocol: sqs
+  PaymentSuccessTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !GetAtt EditAccountApiKeyQueue.Arn
+          Protocol: sqs
+        - Endpoint: !GetAtt AppendPaymentQueue.Arn
+          Protocol: sqs
+  PaymentFailureTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !GetAtt EditAccountApiKeyQueue.Arn
+          Protocol: sqs
+        - Endpoint: !GetAtt PaymentFailureQueue.Arn
+          Protocol: sqs
+  CloudWatchAlarmTopic:
+    Type: AWS::SNS::Topic
+
+  # SQS Queues --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  EditAccountApiKeyQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EditAccountApiKeyDLQ.Arn
+        maxReceiveCount: 5
+      MessageRetentionPeriod: 345600
+  AppendPaymentQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt AppendPaymentDLQ.Arn
+        maxReceiveCount: 5
+  PaymentFailureQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt PaymentFailureDLQ.Arn
+        maxReceiveCount: 5
+  RenewSubscriptionsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RenewSubscriptionsDLQ.Arn
+        maxReceiveCount: 5
+
+  # Scheduler ------- ^ periodically send a message to the RenewSubscriptionsQueue---------------------------------------------------------------------------------------------------------------------------
+  DailyBillingSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      ScheduleExpression: rate(5 minutes)
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt RenewSubscriptionsQueue.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"message": "Scheduled payment processing event"}'
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SchedulerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt RenewSubscriptionsQueue.Arn
+
+  # SQS DLQ's --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  EditAccountApiKeyDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+  CognitoPostConfirmationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+  RenewSubscriptionsDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+  AppendPaymentDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+  PaymentFailureDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+  DynamoDbStreamApiKeyHandlerDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+
+  #  SQS Resource-based Policies --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  EditAccountApiKeyQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt EditAccountApiKeyQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref AccountCreatedTopic
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt EditAccountApiKeyQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref PaymentSuccessTopic
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt EditAccountApiKeyQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref PaymentFailureTopic
+      Queues:
+        - !Ref EditAccountApiKeyQueue
+  AppendPaymentQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt AppendPaymentQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref PaymentSuccessTopic
+      Queues:
+        - !Ref AppendPaymentQueue
+  PaymentFailureQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Resource: !GetAtt PaymentFailureQueue.Arn
+            Action: sqs:SendMessage
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref PaymentFailureTopic
+      Queues:
+        - !Ref PaymentFailureQueue
+
+  #  CloudWatch  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  CloudWatchAlarmTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref CloudWatchAlarmTopic
+      Endpoint: !Ref NotificationEmail
+  EditAccountApiKeyDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when there is at least one message in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt EditAccountApiKeyDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref CloudWatchAlarmTopic
+      TreatMissingData: notBreaching
+  CognitoConfirmationDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when there is at least one message in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt CognitoPostConfirmationDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref CloudWatchAlarmTopic
+      TreatMissingData: notBreaching
+  AppendPaymentDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when there is at least one message in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt AppendPaymentDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref CloudWatchAlarmTopic
+      TreatMissingData: notBreaching
+  RenewSubscriptionsDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when there is at least one message in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt RenewSubscriptionsDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref CloudWatchAlarmTopic
+      TreatMissingData: notBreaching
+  PaymentFailureDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when there is at least one message in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt PaymentFailureDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref CloudWatchAlarmTopic
+      TreatMissingData: notBreaching
+  DynamoDbStreamApiKeyHandlerDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when there is at least one message in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref CloudWatchAlarmTopic
+      TreatMissingData: notBreaching
+
   # Asynchronous Lambda Functions --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  DailyBillingFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/daily-billing
-      Handler: index.handler
-      Runtime: nodejs20.x
-      Environment:
-        Variables:
-          PAYMENTFAILURE_TOPIC_NAME_2: !GetAtt PaymentFailureTopic.TopicName
-          PAYMENTFAILURE_TOPIC_ARN_2: !Ref PaymentFailureTopic
-          CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
-          CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
-          APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
-          APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
-          PAYMENTSUCCESSTOPIC_TOPIC_NAME: !GetAtt PaymentSuccessTopic.TopicName
-          PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
-          PAYMENTFAILURETOPIC_TOPIC_NAME: !GetAtt PaymentFailureTopic.TopicName
-          PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
-      Policies:
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt PaymentFailureTopic.TopicName
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt PaymentSuccessTopic.TopicName
-        - DynamoDBCrudPolicy:
-            TableName: !Ref CreditCardsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ApiKeysTable
-      Events:
-        DailyBillingQueue:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt DailyBillingQueue.Arn
-            BatchSize: 1
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
-  ProcessPaymentFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/process-payment
-      Handler: index.handler
-      Runtime: nodejs20.x
-      Events:
-        ProcessPaymentQueue:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt ProcessPaymentQueue.Arn
-            BatchSize: 1
-      Environment:
-        Variables:
-          PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
-          PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
-          PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
-          PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref PaymentsTable
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
   EditAccountApiKeyFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -862,237 +1081,99 @@ Resources:
           - '@aws-sdk/*'
           - aws-sdk
         Minify: false
-
-  # SNS Topics --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  AccountCreatedTopic:
-    Type: AWS::SNS::Topic
+  RenewSubscriptionsFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      Subscription:
-        - Endpoint: !GetAtt EditAccountApiKeyQueue.Arn
-          Protocol: sqs
-  PaymentSuccessTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      Subscription:
-        - Endpoint: !GetAtt EditAccountApiKeyQueue.Arn
-          Protocol: sqs
-        - Endpoint: !GetAtt ProcessPaymentQueue.Arn
-          Protocol: sqs
-  PaymentFailureTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      Subscription:
-        - Endpoint: !GetAtt ProcessPaymentQueue.Arn
-          Protocol: sqs
-        - Endpoint: !GetAtt EditAccountApiKeyQueue.Arn
-          Protocol: sqs
-  CloudWatchAlarmTopic:
-    Type: AWS::SNS::Topic
-
-  # SQS Queues --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  EditAccountApiKeyQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt EditAccountApiKeyDLQ.Arn
-        maxReceiveCount: 5
-      MessageRetentionPeriod: 345600
-  ProcessPaymentQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 345600
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt ProcessPaymentDLQ.Arn
-        maxReceiveCount: 5
-  DailyBillingQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 345600
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt DailyBillingDLQ.Arn
-        maxReceiveCount: 5
-  # ^ periodically send a message to the DailyBillingQueue
-  DailyBillingSchedule:
-    Type: AWS::Scheduler::Schedule
-    Properties:
-      ScheduleExpression: rate(5 minutes)
-      FlexibleTimeWindow:
-        Mode: 'OFF'
-      Target:
-        Arn: !GetAtt DailyBillingQueue.Arn
-        RoleArn: !GetAtt SchedulerRole.Arn
-        Input: '{"message": "Scheduled payment processing event"}'
-  SchedulerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: scheduler.amazonaws.com
-            Action: sts:AssumeRole
+      CodeUri: lambda/renew-subscriptions
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          PAYMENTFAILURE_TOPIC_NAME_2: !GetAtt PaymentFailureTopic.TopicName
+          PAYMENTFAILURE_TOPIC_ARN_2: !Ref PaymentFailureTopic
+          CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
+          CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
+          APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
+          APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
+          PAYMENTSUCCESSTOPIC_TOPIC_NAME: !GetAtt PaymentSuccessTopic.TopicName
+          PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
+          PAYMENTFAILURETOPIC_TOPIC_NAME: !GetAtt PaymentFailureTopic.TopicName
+          PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
       Policies:
-        - PolicyName: SchedulerPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sqs:SendMessage
-                Resource: !GetAtt DailyBillingQueue.Arn
-
-  # SQS DLQ's --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  EditAccountApiKeyDLQ:
-    Type: AWS::SQS::Queue
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt PaymentFailureTopic.TopicName
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt PaymentSuccessTopic.TopicName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CreditCardsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApiKeysTable
+      Events:
+        RenewSubscriptionsQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RenewSubscriptionsQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  AppendPaymentFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      MessageRetentionPeriod: 345600
-  ProcessPaymentDLQ:
-    Type: AWS::SQS::Queue
+      CodeUri: lambda/append-payment
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Events:
+        AppendPaymentQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AppendPaymentQueue.Arn
+            BatchSize: 1
+      Environment:
+        Variables:
+          PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
+          PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PaymentsTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt PaymentSuccessTopic.TopicName
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  PaymentFailureFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      MessageRetentionPeriod: 345600
-  CognitoPostConfirmationDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 345600
-  DailyBillingDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 345600
-
-  #  SQS Resource-based Policies --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  EditAccountApiKeyQueuePolicy:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      Queues:
-        - !Ref EditAccountApiKeyQueue
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Resource: !GetAtt EditAccountApiKeyQueue.Arn
-            Action: sqs:SendMessage
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref PaymentSuccessTopic
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Resource: !GetAtt EditAccountApiKeyQueue.Arn
-            Action: sqs:SendMessage
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref AccountCreatedTopic
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Resource: !GetAtt EditAccountApiKeyQueue.Arn
-            Action: sqs:SendMessage
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref PaymentFailureTopic
-  ProcessPaymentQueuePolicy:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      Queues:
-        - !Ref ProcessPaymentQueue
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Resource: !GetAtt ProcessPaymentQueue.Arn
-            Action: sqs:SendMessage
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref PaymentSuccessTopic
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Resource: !GetAtt ProcessPaymentQueue.Arn
-            Action: sqs:SendMessage
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref PaymentFailureTopic
-
-  #  CloudWatch  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  CloudWatchAlarmTopicSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Protocol: email
-      TopicArn: !Ref CloudWatchAlarmTopic
-      Endpoint: !Ref NotificationEmail
-  EditAccountApiKeyDLQAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Triggers when there is at least one message in the DLQ
-      Namespace: AWS/SQS
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt EditAccountApiKeyDLQ.QueueName
-      Statistic: Sum
-      Period: 60
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      AlarmActions:
-        - !Ref CloudWatchAlarmTopic
-      TreatMissingData: notBreaching
-  ProcessPaymentDLQAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Triggers when there is at least one message in the DLQ
-      Namespace: AWS/SQS
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt ProcessPaymentDLQ.QueueName
-      Statistic: Sum
-      Period: 60
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      AlarmActions:
-        - !Ref CloudWatchAlarmTopic
-      TreatMissingData: notBreaching
-  CognitoConfirmationDLQAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Triggers when there is at least one message in the DLQ
-      Namespace: AWS/SQS
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt CognitoPostConfirmationDLQ.QueueName
-      Statistic: Sum
-      Period: 60
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      AlarmActions:
-        - !Ref CloudWatchAlarmTopic
-      TreatMissingData: notBreaching
-  DailyBillingDLQAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Triggers when there is at least one message in the DLQ
-      Namespace: AWS/SQS
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt DailyBillingDLQ.QueueName
-      Statistic: Sum
-      Period: 60
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      AlarmActions:
-        - !Ref CloudWatchAlarmTopic
-      TreatMissingData: notBreaching
+      CodeUri: lambda/payment-failure
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Events:
+        PaymentFailureQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PaymentFailureQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
   DynamoDbStreamApiKeyHandlerFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1117,8 +1198,6 @@ Resources:
             Stream: !GetAtt ApiKeysTable.StreamArn
             StartingPosition: TRIM_HORIZON
             BatchSize: 1
-      MemorySize: 3008
-      Timeout: 30
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -1128,27 +1207,6 @@ Resources:
           - '@aws-sdk/*'
           - aws-sdk
         Minify: false
-  DynamoDbStreamApiKeyHandlerDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 345600
-  DynamoDbStreamApiKeyHandlerDLQAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmDescription: Triggers when there is at least one message in the DLQ
-      Namespace: AWS/SQS
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
-      Statistic: Sum
-      Period: 60
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      AlarmActions:
-        - !Ref CloudWatchAlarmTopic
-      TreatMissingData: notBreaching
 
 Metadata:
   AWS::Composer::Groups:
@@ -1180,18 +1238,20 @@ Metadata:
     Group4:
       Label: Async Functions
       Members:
-        - DailyBillingFunction
+        - RenewSubscriptionsFunction
         - EditAccountApiKeyFunction
-        - ProcessPaymentFunction
         - DynamoDbStreamApiKeyHandlerFunction
+        - PaymentFailureFunction
+        - AppendPaymentFunction
     Group6:
       Label: DLQ's
       Members:
         - EditAccountApiKeyDLQ
-        - ProcessPaymentDLQ
+        - AppendPaymentDLQ
         - CognitoPostConfirmationDLQ
         - DynamoDbStreamApiKeyHandlerDLQ
-        - DailyBillingDLQ
+        - RenewSubscriptionsDLQ
+        - PaymentFailureDLQ
     Group7:
       Label: DynamoDB Tables
       Members:
@@ -1204,23 +1264,24 @@ Metadata:
         - ResetAccountFunction
         - FormatAccountFunction
         - CreateTestUserFunction
-        - InvokeDailyBillingFunction
+        - InvokeRenewSubscriptionsFunction
         - PollAllPaymentsFunction
     Group10:
       Label: CloudWatch DLQ Alarms
       Members:
         - EditAccountApiKeyDLQAlarm
         - DynamoDbStreamApiKeyHandlerDLQAlarm
-        - ProcessPaymentDLQAlarm
+        - AppendPaymentDLQAlarm
         - CognitoConfirmationDLQAlarm
-        - DailyBillingDLQAlarm
+        - RenewSubscriptionsDLQAlarm
+        - PaymentFailureDLQAlarm
     Group11:
       Label: Lambda Invoking Queues
       Members:
         - EditAccountApiKeyQueue
-        - ProcessPaymentQueue
+        - AppendPaymentQueue
+        - PaymentFailureQueue
         - Group12
-        - Group5
     Group9:
       Label: Email When Alarm Is Invoked
       Members:
@@ -1230,9 +1291,10 @@ Metadata:
       Label: Scheduled Invocation
       Members:
         - DailyBillingSchedule
-        - DailyBillingQueue
+        - RenewSubscriptionsQueue
     Group5:
-      Label: SQS Resource-based Policies
+      Label: SQS Resource-based policies
       Members:
         - EditAccountApiKeyQueuePolicy
-        - ProcessPaymentQueuePolicy
+        - AppendPaymentQueuePolicy
+        - PaymentFailureQueuePolicy

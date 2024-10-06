@@ -64,59 +64,16 @@ export const handler = async (event: SQSEvent) => {
     console.log("Processing record: ", record);
 
     // Parse the message body, which contains the EventBridge event
-    const { TopicArn, user_id, amount, noCard, recurring } =
-      extractSnsDataFromSqsRecord(record);
+    const { user_id, noCard, recurring } = extractSnsDataFromSqsRecord(record);
 
-    console.log("TopicArn: ", TopicArn);
-
-    switch (TopicArn) {
-      case process.env.PAYMENTSUCCESSTOPIC_TOPIC_ARN:
-        try {
-          // Log before attempting the insert to understand the state
-          console.log(
-            `Processing payment for user ${user_id} with amount ${amount}`
-          );
-
-          // Ensure that amount is a valid number
-          if (!amount || isNaN(+amount)) {
-            throw new Error(`Invalid amount: ${amount}`);
-          }
-
-          const today = formatDate(new Date());
-
-          await dynamoClient.send(
-            new PutItemCommand({
-              TableName: process.env.PAYMENTSTABLE_TABLE_NAME || "Payments",
-              Item: {
-                user_id: { S: user_id },
-                amount: { S: (+amount).toString() },
-                date: { S: today },
-              } as PaymentTableItem,
-            })
-          );
-
-          // OPTIONALLY SEND SES EMAIL FOR PAYMENT SUCCESS HERE TO USER
-
-          // ^^^^^^
-        } catch (error) {
-          throw new Error("Failed to insert payment record");
-        }
-        break;
-
-      case process.env.PAYMENTFAILEDTOPIC_TOPIC_ARN:
-        try {
-          if (noCard || !recurring) {
-            // OPTIONALLY SEND SES EMAIL TO USER THAT THEIR API KEY HAS EXPIRED
-          } else {
-            // OPTIONALLY SEND SES EMAIL FOR PAYMENT FAILURE TO USER
-          }
-        } catch (error) {
-          throw new Error("Failed to handle payment failure");
-        }
-        break;
-
-      default:
-        throw new Error(`Unknown topic: ${TopicArn}`);
+    try {
+      if (noCard || !recurring) {
+        console.log("API KEY HAS EXPIRED for user_id: ", user_id);
+      } else {
+        console.log("PAYMENT FAILURE for user_id: ", user_id);
+      }
+    } catch (error) {
+      throw new Error("Failed to handle payment failure");
     }
   }
 };

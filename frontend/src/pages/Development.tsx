@@ -29,10 +29,10 @@ function Page() {
     setLoading(false);
   }, []);
 
-  const invokeDailyBilling = useCallback(async () => {
+  const invokeRenewSubscriptions = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await invokeBackendService("InvokeDailyBilling");
+      const response = await invokeBackendService("InvokeRenewSubscriptions");
 
       if (!response.success) {
         handleBackendServiceError(response.error);
@@ -121,7 +121,7 @@ function Page() {
             Format Account
           </button>
           <button
-            onClick={invokeDailyBilling}
+            onClick={invokeRenewSubscriptions}
             disabled={loading}
             className={`${
               loading
@@ -129,7 +129,7 @@ function Page() {
                 : "bg-pink-400/[72.5%] hover:bg-pink-400/90 border border-pink-600/30"
             } w-full py-2 mb-2.5 rounded transition-colors ease-out duration-75`}
           >
-            Invoke Daily Billing
+            Renew Subscriptions
           </button>
           <button
             onClick={() => setModal("ViewSuccessfulPayments")}
