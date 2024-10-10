@@ -1,0 +1,44 @@
+
+  .slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 0.33rem;
+    border-radius: 5px;
+    background: linear-gradient(to right, #71a2a9 60%, #d1d1d1 60%);
+    outline: none;
+  }
+
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: #9a5dfc;
+    cursor: pointer;
+    transition: all 0.1s ease-out;
+  }
+
+  .group:hover .slider::-webkit-slider-thumb {
+    background: rgb(60, 165, 105)
+  }
+
+  .slider::-moz-range-thumb {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: #9a5dfc;
+    cursor: pointer;
+  }
+
+  .group:hover .slider::-moz-range-thumb {
+    background: rgb(60, 165, 105)
+  }
+
+  /* Firefox styling */
+  .slider::-moz-range-track {
+    background: linear-gradient(to right, #adb3b4 60%, #d1d1d1 60%);
+    height: 0.33rem;
+    border-radius: 5px;
+  }

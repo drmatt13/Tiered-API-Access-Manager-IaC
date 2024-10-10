@@ -15,15 +15,18 @@ Parameters:
     Description: Email address to receive DLQ alarm notifications
 
 Outputs:
-  ApiUrl:
+  FrontEndApiUrl:
     Description: API Gateway endpoint URL for Prod stage
-    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/prod
+    Value: !Sub https://${FrontEndApi}.execute-api.${AWS::Region}.amazonaws.com/prod
   CognitoUserPoolId:
     Description: User Pool ID
     Value: !Ref UserPool
   CognitoClientId:
     Description: User Pool Client ID
     Value: !Ref UserPoolClient
+  ApiKeyThrottledApi:
+    Description: API Key for the Throttled API Gateway
+    Value: !Sub https://${ApiKeyThrottledApi}.execute-api.${AWS::Region}.amazonaws.com/prod
 
 Resources:
 
@@ -143,150 +146,6 @@ Resources:
       FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
       Principal: cognito-idp.amazonaws.com
       SourceArn: !GetAtt UserPool.Arn
-  # ^ Resourece-based policies to allow Cognito to invoke the Lambda function
-
-  # API --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  Api:
-    Type: AWS::Serverless::Api
-    Properties:
-      StageName: prod
-      DefinitionBody:
-        openapi: '3.0'
-        info: {}
-        paths:
-          /make-credit-card-payment:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MakeCreditCardPaymentFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /get-account-credit-card:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountCreditCardFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /edit-account-credit-card:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-            put:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-            delete:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /get-account-api-key:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountApiKeyFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /reset-account-api-key:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetAccountApiKeyFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /delete-account:
-            delete:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteAccountFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /get-account-payment-history:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountPaymentHistoryFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-reset-account:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetAccountFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-format-account:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FormatAccountFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-create-test-user:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateTestUserFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-invoke-renew-subscriptions:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${InvokeRenewSubscriptionsFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-poll-all-payments:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PollAllPaymentsFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-      Cors:
-        AllowOrigin: '''*'''
-        AllowMethods: '''GET,OPTIONS,POST,PUT,DELETE'''
-        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
-        MaxAge: 5
-      Auth:
-        Authorizers:
-          CognitoAuthorizer:
-            UserPoolArn: !GetAtt UserPool.Arn
 
   # DynamoDB Tables --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   ApiKeysTable:
@@ -358,12 +217,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
       Events:
-        ApiPOSTmakecreditcardpayment:
+        FrontEndApiPOSTmakecreditcardpayment:
           Type: Api
           Properties:
             Path: /make-credit-card-payment
             Method: POST
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -387,12 +246,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
       Events:
-        ApiGETgetaccountcreditcard:
+        FrontEndApiGETgetaccountcreditcard:
           Type: Api
           Properties:
             Path: /get-account-credit-card
             Method: GET
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -444,12 +303,12 @@ Resources:
                 - cognito-idp:UpdateGroup
               Resource: !GetAtt UserPool.Arn
       Events:
-        ApiDELETEdeleteaccount:
+        FrontEndApiDELETEdeleteaccount:
           Type: Api
           Properties:
             Path: /delete-account
             Method: DELETE
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -473,12 +332,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
       Events:
-        ApiGETgetaccountapikey:
+        FrontEndApiGETgetaccountapikey:
           Type: Api
           Properties:
             Path: /get-account-api-key
             Method: GET
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -502,12 +361,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
       Events:
-        ApiGETgetaccountpaymenthistory:
+        FrontEndApiGETgetaccountpaymenthistory:
           Type: Api
           Properties:
             Path: /get-account-payment-history
             Method: GET
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -531,24 +390,24 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
       Events:
-        ApiPOSTeditaccountcreditcard:
+        FrontEndApiPOSTeditaccountcreditcard:
           Type: Api
           Properties:
             Path: /edit-account-credit-card
             Method: POST
-            RestApiId: !Ref Api
-        ApiPUTeditaccountcreditcard:
+            RestApiId: !Ref FrontEndApi
+        FrontEndApiPUTeditaccountcreditcard:
           Type: Api
           Properties:
             Path: /edit-account-credit-card
             Method: PUT
-            RestApiId: !Ref Api
-        ApiDELETEeditaccountcreditcard:
+            RestApiId: !Ref FrontEndApi
+        FrontEndApiDELETEeditaccountcreditcard:
           Type: Api
           Properties:
             Path: /edit-account-credit-card
             Method: DELETE
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -572,12 +431,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
       Events:
-        ApiPOSTresetaccountapikey:
+        FrontEndApiPOSTresetaccountapikey:
           Type: Api
           Properties:
             Path: /reset-account-api-key
             Method: POST
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -611,12 +470,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
       Events:
-        ApiGETdevresetaccount:
+        FrontEndApiGETdevresetaccount:
           Type: Api
           Properties:
             Path: /dev-reset-account
             Method: GET
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -648,12 +507,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
       Events:
-        ApiGETdevformataccount:
+        FrontEndApiGETdevformataccount:
           Type: Api
           Properties:
             Path: /dev-format-account
             Method: GET
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -685,12 +544,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
       Events:
-        ApiGETdevcreatetestuser:
+        FrontEndApiGETdevcreatetestuser:
           Type: Api
           Properties:
             Path: /dev-create-test-user
             Method: GET
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -714,12 +573,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
       Events:
-        ApiGETdevpollallpayments:
+        FrontEndApiGETdevpollallpayments:
           Type: Api
           Properties:
             Path: /dev-poll-all-payments
             Method: GET
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -736,12 +595,12 @@ Resources:
       Handler: index.handler
       Runtime: nodejs20.x
       Events:
-        ApiGETdevinvokemonthlybilling:
+        FrontEndApiGETdevinvokemonthlybilling:
           Type: Api
           Properties:
-            Path: /dev-invoke-daily-billing
+            Path: /dev-invoke-renew-subscriptions
             Method: GET
-            RestApiId: !Ref Api
+            RestApiId: !Ref FrontEndApi
       Environment:
         Variables:
           RENEWSUBSCRIPTIONSQUEUE_QUEUE_NAME: !GetAtt RenewSubscriptionsQueue.QueueName
@@ -939,6 +798,185 @@ Resources:
       Queues:
         - !Ref PaymentFailureQueue
 
+  # Asynchronous Lambda Functions --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  EditAccountApiKeyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/edit-account-api-key
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Events:
+        EditAccountApiKeyQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EditAccountApiKeyQueue.Arn
+            BatchSize: 1
+      Environment:
+        Variables:
+          APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
+          APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
+          ACCOUNTCREATEDTOPIC_TOPIC_ARN: !Ref AccountCreatedTopic
+          PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
+          PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApiKeysTable
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  RenewSubscriptionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/renew-subscriptions
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
+          PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
+          CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
+          CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
+          APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
+          APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
+          PAYMENTSUCCESSTOPIC_TOPIC_NAME: !GetAtt PaymentSuccessTopic.TopicName
+          PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
+          PAYMENTFAILURETOPIC_TOPIC_NAME: !GetAtt PaymentFailureTopic.TopicName
+          PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
+      Policies:
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt PaymentFailureTopic.TopicName
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt PaymentSuccessTopic.TopicName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CreditCardsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApiKeysTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PaymentsTable
+      Events:
+        RenewSubscriptionsQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RenewSubscriptionsQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  AppendPaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/append-payment
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Events:
+        AppendPaymentQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AppendPaymentQueue.Arn
+            BatchSize: 1
+      Environment:
+        Variables:
+          PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
+          PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PaymentsTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt PaymentSuccessTopic.TopicName
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  PaymentFailureFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/payment-failure
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Events:
+        PaymentFailureQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PaymentFailureQueue.Arn
+            BatchSize: 1
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  DynamoDbStreamApiKeyHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/dynamodb-stream-api-key-handler
+      Handler: index.handler
+      Runtime: nodejs20.x
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.Arn
+      Environment:
+        Variables:
+          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_NAME: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
+          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_ARN: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.Arn
+          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_URL: !Ref DynamoDbStreamApiKeyHandlerDLQ
+          APIKEYTHROTTLEDAPI_API_URL: !Sub https://${ApiKeyThrottledApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiKeyThrottledApi.Stage}
+          USAGE_PLAN_PAID_ID: !Ref UsagePlanPaid
+          USAGE_PLAN_FREE_ID: !Ref UsagePlanFree
+          APIKEYIDMAPTABLE_TABLE_NAME: !Ref ApiKeyIdMapTable
+          APIKEYIDMAPTABLE_TABLE_ARN: !GetAtt ApiKeyIdMapTable.Arn
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
+        - Statement:
+            Effect: Allow
+            Action:
+              - execute-api:Invoke
+              - apigateway:POST
+              - apigateway:GET
+              - apigateway:DELETE
+              - apigateway:PUT
+              - apigateway:PATCH
+            Resource:
+              - '*'
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApiKeyIdMapTable
+      Events:
+        ApiKeysTable:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt ApiKeysTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+
   #  CloudWatch  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   CloudWatchAlarmTopicSubscription:
     Type: AWS::SNS::Subscription
@@ -1048,30 +1086,191 @@ Resources:
       AlarmActions:
         - !Ref CloudWatchAlarmTopic
       TreatMissingData: notBreaching
+  # ^ Resourece-based policies to allow Cognito to invoke the Lambda function
 
-  # Asynchronous Lambda Functions --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  EditAccountApiKeyFunction:
+  # API --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  FrontEndApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      DefinitionBody:
+        openapi: '3.0'
+        info: {}
+        paths:
+          /make-credit-card-payment:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MakeCreditCardPaymentFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /get-account-credit-card:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountCreditCardFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /edit-account-credit-card:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+            delete:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /get-account-api-key:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountApiKeyFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /reset-account-api-key:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetAccountApiKeyFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /delete-account:
+            delete:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteAccountFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /get-account-payment-history:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountPaymentHistoryFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-reset-account:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetAccountFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-format-account:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FormatAccountFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-create-test-user:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateTestUserFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-invoke-renew-subscriptions:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${InvokeRenewSubscriptionsFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-poll-all-payments:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PollAllPaymentsFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+      Cors:
+        AllowOrigin: '''*'''
+        AllowMethods: '''GET,OPTIONS,POST,PUT,DELETE'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        MaxAge: 5
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+  ApiKeyThrottledApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      DefinitionBody:
+        openapi: '3.0'
+        info: {}
+        paths:
+          /:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TestFunction.Arn}/invocations
+              responses: {}
+              security:
+                - api_key: [] # Enforce API Key required for this method
+        components:
+          securitySchemes:
+            api_key:
+              type: apiKey
+              name: x-api-key
+              in: header
+      Cors:
+        AllowOrigin: '''*'''
+        AllowMethods: '''GET,OPTIONS,POST,PUT,DELETE'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        MaxAge: 5
+  TestFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambda/edit-account-api-key
+      CodeUri: lambda/test-function
       Handler: index.handler
       Runtime: nodejs20.x
       Events:
-        EditAccountApiKeyQueue:
-          Type: SQS
+        ApiKeyThrottledApiGET:
+          Type: Api
           Properties:
-            Queue: !GetAtt EditAccountApiKeyQueue.Arn
-            BatchSize: 1
-      Environment:
-        Variables:
-          APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
-          APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
-          ACCOUNTCREATEDTOPIC_TOPIC_ARN: !Ref AccountCreatedTopic
-          PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
-          PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ApiKeysTable
+            Path: /
+            Method: GET
+            RestApiId: !Ref ApiKeyThrottledApi
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -1081,132 +1280,47 @@ Resources:
           - '@aws-sdk/*'
           - aws-sdk
         Minify: false
-  RenewSubscriptionsFunction:
-    Type: AWS::Serverless::Function
+  UsagePlanPaid:
+    Type: AWS::ApiGateway::UsagePlan
     Properties:
-      CodeUri: lambda/renew-subscriptions
-      Handler: index.handler
-      Runtime: nodejs20.x
-      Environment:
-        Variables:
-          PAYMENTFAILURE_TOPIC_NAME_2: !GetAtt PaymentFailureTopic.TopicName
-          PAYMENTFAILURE_TOPIC_ARN_2: !Ref PaymentFailureTopic
-          CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
-          CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
-          APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
-          APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
-          PAYMENTSUCCESSTOPIC_TOPIC_NAME: !GetAtt PaymentSuccessTopic.TopicName
-          PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
-          PAYMENTFAILURETOPIC_TOPIC_NAME: !GetAtt PaymentFailureTopic.TopicName
-          PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
-      Policies:
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt PaymentFailureTopic.TopicName
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt PaymentSuccessTopic.TopicName
-        - DynamoDBCrudPolicy:
-            TableName: !Ref CreditCardsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ApiKeysTable
-      Events:
-        RenewSubscriptionsQueue:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt RenewSubscriptionsQueue.Arn
-            BatchSize: 1
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
-  AppendPaymentFunction:
-    Type: AWS::Serverless::Function
+      ApiStages:
+        - ApiId: !Ref ApiKeyThrottledApi
+          Stage: prod
+      Description: Paid Usage Plan
+      Quota:
+        Limit: 5000
+        Period: MONTH
+      Throttle:
+        BurstLimit: 200
+        RateLimit: 100
+      UsagePlanName: Paid
+
+  UsagePlanFree:
+    Type: AWS::ApiGateway::UsagePlan
     Properties:
-      CodeUri: lambda/append-payment
-      Handler: index.handler
-      Runtime: nodejs20.x
-      Events:
-        AppendPaymentQueue:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt AppendPaymentQueue.Arn
-            BatchSize: 1
-      Environment:
-        Variables:
-          PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
-          PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref PaymentsTable
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt PaymentSuccessTopic.TopicName
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
-  PaymentFailureFunction:
-    Type: AWS::Serverless::Function
+      ApiStages:
+        - ApiId: !Ref ApiKeyThrottledApi
+          Stage: prod
+      Description: Free Usage Plan
+      Quota:
+        Limit: 100
+        Period: MONTH
+      Throttle:
+        BurstLimit: 1
+        RateLimit: 1
+      UsagePlanName: Free
+  ApiKeyIdMapTable:
+    Type: AWS::DynamoDB::Table
     Properties:
-      CodeUri: lambda/payment-failure
-      Handler: index.handler
-      Runtime: nodejs20.x
-      Events:
-        PaymentFailureQueue:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt PaymentFailureQueue.Arn
-            BatchSize: 1
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
-  DynamoDbStreamApiKeyHandlerFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/dynamodb-stream-api-key-handler
-      Handler: index.handler
-      Runtime: nodejs20.x
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.Arn
-      Environment:
-        Variables:
-          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_NAME: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
-          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_ARN: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.Arn
-          DYNAMODBSTREAMAPIKEYHANDLERDLQ_QUEUE_URL: !Ref DynamoDbStreamApiKeyHandlerDLQ
-      Policies:
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
-      Events:
-        ApiKeysTable:
-          Type: DynamoDB
-          Properties:
-            Stream: !GetAtt ApiKeysTable.StreamArn
-            StartingPosition: TRIM_HORIZON
-            BatchSize: 1
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
 
 Metadata:
   AWS::Composer::Groups:
@@ -1236,11 +1350,10 @@ Metadata:
         - PaymentSuccessTopic
         - PaymentFailureTopic
     Group4:
-      Label: Async Functions
+      Label: Async SQS Invoked Functions
       Members:
         - RenewSubscriptionsFunction
         - EditAccountApiKeyFunction
-        - DynamoDbStreamApiKeyHandlerFunction
         - PaymentFailureFunction
         - AppendPaymentFunction
     Group6:
@@ -1258,6 +1371,8 @@ Metadata:
         - ApiKeysTable
         - PaymentsTable
         - CreditCardsTable
+        - Group14
+        - ApiKeyIdMapTable
     Group8:
       Label: Development API Gateway Lambda Functions
       Members:
@@ -1298,3 +1413,14 @@ Metadata:
         - EditAccountApiKeyQueuePolicy
         - AppendPaymentQueuePolicy
         - PaymentFailureQueuePolicy
+    Group13:
+      Label: Throttled API
+      Members:
+        - ApiKeyThrottledApi
+        - TestFunction
+        - UsagePlanPaid
+        - UsagePlanFree
+    Group14:
+      Label: DynamoDB Streams
+      Members:
+        - DynamoDbStreamApiKeyHandlerFunction

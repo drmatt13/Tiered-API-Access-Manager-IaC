@@ -8,7 +8,11 @@ import {
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 
 // types
-import { APIKeysTableItem, CreditCardsTableItem } from "../../types/tableItems";
+import {
+  APIKeysTableItem,
+  CreditCardsTableItem,
+  PaymentTableItem,
+} from "../../types/tableItems";
 
 const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
 const snsClient = new SNSClient({});
@@ -44,6 +48,23 @@ export const handler = async (event: SQSEvent) => {
 
     for (let ApiKeyItem of ApiKeyItems) {
       console.log("Processing ApiKeyItem:", ApiKeyItem);
+
+      // check if payment has already been made for today
+      const { Item: PaymentItem } = await dynamoClient.send(
+        new GetItemCommand({
+          TableName: process.env.PAYMENTSTABLE_TABLE_NAME || "Payments",
+          Key: {
+            user_id: { S: (ApiKeyItem as APIKeysTableItem).user_id.S },
+            date: { S: todayDate },
+          },
+        })
+      );
+
+      // if payment has already been made for today, skip this user
+      if (PaymentItem) {
+        console.log("Payment already made for today for user:", PaymentItem);
+        continue;
+      }
 
       // get creditcard for the user
       const { Item: CreditCardItem } = await dynamoClient.send(

@@ -36,3 +36,12 @@ export type APIKeysTableItem = {
     S: string;
   };
 };
+
+export type ApiKeyIdMapTableItem = {
+  user_id: {
+    S: string;
+  };
+  apiKey_id: {
+    S: string;
+  };
+};

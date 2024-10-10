@@ -16,7 +16,7 @@ import type {
   ServicePayloadMap,
 } from "../../../types/BackendRequest";
 
-const API_ENDPOINT = import.meta.env.VITE_ApiGatewayEndpoint as string;
+const API_ENDPOINT = import.meta.env.VITE_FrontEndApiUrl as string;
 
 const poolData = {
   UserPoolId: import.meta.env.VITE_UserPoolId as string,

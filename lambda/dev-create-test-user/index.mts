@@ -93,7 +93,7 @@ export const handler = async (
     // insert records into PaymentTable, each with a date 1 month apart in the past using the batchWriteItem operation
     const paymentTableItems: PaymentTableItem[] = [];
 
-    for (let i = 1; i <= Math.floor(Math.random() * 12) + 1; i++) {
+    for (let i = 1; i < 2; i++) {
       const adjustedDate = getAdjustedDate(today, -i); // Adjusting months backwards from the current month
       const formattedDate = formatDate(adjustedDate);
 

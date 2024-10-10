@@ -62,7 +62,7 @@ const LogModal = () => {
             let rightColor = "text-yellow-500";
             if (message === "Success") {
               rightColor =
-                status !== "InvokeDailyBilling"
+                status !== "InvokeRenewSubscriptions"
                   ? "text-green-500"
                   : message === "Success"
                   ? "text-pink-400"
@@ -89,7 +89,7 @@ const LogModal = () => {
                   </>
                 )}{" "}
                 <span className={rightColor}>
-                  {status !== "InvokeDailyBilling"
+                  {status !== "InvokeRenewSubscriptions"
                     ? message
                     : message === "Success"
                     ? "Invoked"

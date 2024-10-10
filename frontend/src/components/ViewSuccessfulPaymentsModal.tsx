@@ -32,6 +32,10 @@ const ViewSuccessfulPaymentsModal = () => {
       const responsePromise = invokeBackendService("PollAllPayments");
       const [response] = await Promise.all([responsePromise, delay]);
 
+      if (!response.tableItems) {
+        throw new Error("No payments found");
+      }
+
       if (!sessionData.payments) {
         setSessionData((current) => ({
           ...current,
@@ -57,6 +61,7 @@ const ViewSuccessfulPaymentsModal = () => {
         })
       );
     } catch (error) {
+      alert("No payments found");
       console.error("Failed to poll payments:", error);
     }
 
