@@ -39,7 +39,7 @@ const ModalLayout = ({ children }: ModalLayoutProps) => {
 
   return (
     <>
-      <ModalContext.Provider value={{ setModal }}>
+      <ModalContext.Provider value={{ modal, setModal }}>
         <div className="relative">
           {!["/login", "/register"].includes(location.pathname) && <LogModal />}
           <div

@@ -17,29 +17,32 @@ import "../css/slider.css";
 const API_ENDPOINT = "http://localhost:3000";
 
 const TestApiKeyModal = () => {
-  const {
-    sessionData,
-    invokeBackendService,
-    handleBackendServiceError,
-    setSessionData,
-  } = useContext(SessionContext);
+  const apiImageDivRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
-  const [isInitialRequestRunning, setIsInitialRequestRunning] = useState(false);
   const apiKeyBtnRef = useRef<HTMLElement | null>(null);
   const urlBtnRef = useRef<HTMLElement | null>(null);
   const [copiedApiKey, setCopiedApiKey] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const apiKeyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const urlTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [rangeValue, setRangeValue] = useState(1);
   const animationContainerRef = useRef<HTMLDivElement | null>(null);
-  const [invoking, setInvoking] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const requestCountRef = useRef(0);
-  const initialRequestRef = useRef(false);
-  const failedCountRef = useRef(0);
-  const stopRequestedRef = useRef(false);
+  const rangeValueRef = useRef<number>(1);
+  const [rangeValue, setRangeValue] = useState(1);
+  const [polling, setPolling] = useState(false);
+  const isPollingRef = useRef(false);
+  const [animationRunning, setAnimationRunning] = useState(false);
+  const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const badCountRef = useRef(0);
+  const resetFlagRef = useRef(false);
+  const resetPollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const {
+    sessionData,
+    invokeBackendService,
+    handleBackendServiceError,
+    setSessionData,
+  } = useContext(SessionContext);
 
   const getUsersApiKeyData = useCallback(async () => {
     setLoading(true);
@@ -157,20 +160,7 @@ const TestApiKeyModal = () => {
     };
   }, [sessionData.key]);
 
-  const stopInvoking = useCallback(() => {
-    console.log("stop invoking");
-    setInvoking(false);
-    setIsInitialRequestRunning(false);
-    stopRequestedRef.current = true;
-    initialRequestRef.current = false; // Allow initial request to run again
-    failedCountRef.current = 0; // Reset the failure count for the next run
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  const createRequest = useCallback(async () => {
+  const animateRequest = useCallback(async () => {
     const parent = document.createElement("div");
     parent.classList.add(
       "absolute",
@@ -183,19 +173,18 @@ const TestApiKeyModal = () => {
     );
 
     const child = document.createElement("div");
-    child.classList.add("w-12", "h-0.5", "rounded-full", "bg-yellow-400");
+    child.classList.add("w-12", "h-[1.5px]", "rounded-full", "bg-yellow-400");
 
     // Apply the random Y translation instantly with a range of -5px to 5px
-    const randomY = Math.floor(Math.random() * 11) - 5; // Random value between -5 and 5
+    const randomY = Math.floor(Math.random() * 13) - 14; // Random value between -5 and 5
     child.style.transform = `translateY(${randomY}px)`; // Set the random Y instantly
 
     parent.appendChild(child);
     animationContainerRef.current?.appendChild(parent);
 
-    const easingArray = ["easeInSine", "linear"];
-    const durationArray = [250, 300, 350, 400];
+    const easingArray = ["easeInSine", "linear", "easeInQuad"];
+    const durationArray = [240, 250, 260, 350, 375, 400];
 
-    // Create the animation promise first
     const promise = new Promise((resolve) => {
       anime({
         targets: parent,
@@ -205,67 +194,44 @@ const TestApiKeyModal = () => {
           durationArray[Math.floor(Math.random() * durationArray.length)],
         complete: () => {
           animationContainerRef.current?.removeChild(parent);
-          resolve(null);
+          resolve(undefined);
         },
       });
     });
-
-    try {
-      requestCountRef.current++;
-
-      const req = axios.get(API_ENDPOINT, {
-        // headers: {
-        //   "x-api-key": sessionData.key,
-        // },
-      });
-
-      // Wait for both the request and the animation to complete
-      const [reqResult] = await Promise.all([req, promise]);
-
-      const success = reqResult.data.success as boolean;
-      await createResponse(success); // Wait for response animation to complete
-      failedCountRef.current > 0 && failedCountRef.current--;
-      return success; // Make sure to return the success value
-    } catch (error) {
-      // Wait for the animation to complete before handling the error
-      await promise;
-      failedCountRef.current++;
-      await createResponse(false); // Wait for response animation to complete
-      return false; // Explicitly return false if the request fails
-    }
+    return promise;
   }, []);
 
-  const createResponse = useCallback((success: boolean) => {
-    return new Promise<void>((resolve) => {
-      const parent = document.createElement("div");
-      parent.classList.add(
-        "absolute",
-        "h-full",
-        "w-full",
-        "top-0",
-        "left-[calc(100%-3rem)]",
-        "flex",
-        "items-center"
-      );
+  const animateResponse = useCallback((success: boolean) => {
+    const parent = document.createElement("div");
+    parent.classList.add(
+      "absolute",
+      "h-full",
+      "w-full",
+      "top-0",
+      "left-[calc(100%-3rem)]",
+      "flex",
+      "items-center"
+    );
 
-      const child = document.createElement("div");
-      child.classList.add(
-        "w-12",
-        "h-0.5",
-        "rounded-full",
-        success ? "bg-green-400" : "bg-red-400"
-      );
+    const child = document.createElement("div");
+    child.classList.add(
+      "w-12",
+      "h-[1.5px]",
+      "rounded-full",
+      success ? "bg-green-400" : "bg-red-400"
+    );
 
-      // Apply the random Y translation instantly with a range of -25px to 25px
-      const randomY = Math.floor(Math.random() * 11) - 5; // Random value between -25 and 25
-      child.style.transform = `translateY(${randomY}px)`; // Set the random Y instantly
+    // Apply the random Y translation instantly with a range of -25px to 25px
+    const randomY = Math.floor(Math.random() * 11) + 3; // Random value between -25 and 25
+    child.style.transform = `translateY(${randomY}px)`; // Set the random Y instantly
 
-      parent.appendChild(child);
-      animationContainerRef.current?.appendChild(parent);
+    parent.appendChild(child);
+    animationContainerRef.current?.appendChild(parent);
 
-      const easingArray = ["easeInSine", "linear"];
-      const durationArray = [250, 300, 350, 400];
+    const easingArray = ["easeInSine", "linear", "easeInQuad"];
+    const durationArray = [240, 250, 260, 350, 375, 400];
 
+    const promise = new Promise((resolve) => {
       anime({
         targets: parent,
         translateX: "calc(-100% + 3rem)", // Only animate the X movement
@@ -274,56 +240,117 @@ const TestApiKeyModal = () => {
           durationArray[Math.floor(Math.random() * durationArray.length)],
         complete: () => {
           animationContainerRef.current?.removeChild(parent);
-          resolve(); // Resolve the promise when the animation is complete
+          resolve(undefined);
         },
       });
     });
+    return promise;
   }, []);
 
-  const startInvoking = useCallback(() => {
-    console.log("start invoking");
-    if (intervalRef.current || stopRequestedRef.current) return;
+  const resetPolling = useCallback(() => {
+    if (!isPollingRef.current) return;
+    if (animationIntervalRef.current)
+      clearInterval(animationIntervalRef.current);
+    setAnimationRunning(false);
+    setPolling(true);
+    badCountRef.current = 0;
+    isPollingRef.current = false;
+    resetPollingTimeoutRef.current = setTimeout(() => {
+      isPollingRef.current = true;
+      poll();
+    }, 1000);
+  }, []);
 
-    setInvoking(true);
-    intervalRef.current = setInterval(() => {
-      if (failedCountRef.current > 5 || stopRequestedRef.current) {
-        stopInvoking(); // Automatically stop when too many failures occur or stop is requested
-        initialRequest();
-      } else {
-        createRequest();
-      }
-    }, 1000 / rangeValue);
-  }, [rangeValue, stopInvoking, createRequest]);
+  const processRequestsAtInterval = useCallback(() => {
+    if (resetFlagRef.current) return;
+    setPolling(false);
+    setAnimationRunning(true);
 
-  const initialRequest = useCallback(async () => {
-    if (initialRequestRef.current) return;
+    if (animationIntervalRef.current)
+      clearInterval(animationIntervalRef.current);
 
-    setIsInitialRequestRunning(true);
-    stopRequestedRef.current = false;
+    animationIntervalRef.current = setInterval(() => {
+      const axiosPromise = axios.get(API_ENDPOINT);
+      const animateRequestPromise = animateRequest();
 
-    const attemptInitialRequest = async () => {
-      if (!initialRequestRef.current || stopRequestedRef.current) return;
+      axiosPromise
+        .then(() => {
+          if (badCountRef.current > 0) badCountRef.current -= 1;
+        })
+        .catch(() => {
+          badCountRef.current += 1;
+          if (badCountRef.current > 4) {
+            resetFlagRef.current = true;
+            resetPolling();
+          }
+        });
 
-      const success = await createRequest(); // Wait for createRequest to resolve
+      // Run this when both Axios request and animateRequestPromise are settled
+      Promise.allSettled([axiosPromise, animateRequestPromise]).then(
+        ([axiosResult]) => {
+          const requestSuccess = axiosResult.status === "fulfilled";
+          animateResponse(requestSuccess);
+        }
+      );
+    }, 1000 / rangeValueRef.current);
+  }, [animationIntervalRef.current]);
 
-      if (success) {
-        setIsInitialRequestRunning(false);
-        startInvoking(); // Start the repeated invocation process if the initial request succeeds
-      } else {
-        // If the request fails, retry only if the stop button wasn't clicked
-        if (initialRequestRef.current && !stopRequestedRef.current) {
-          console.log("Retrying initial request...");
-          setTimeout(attemptInitialRequest, 1000); // Retry after 1 second
+  const poll = useCallback(() => {
+    if (!isPollingRef.current || !isMountedRef.current) return;
+
+    resetFlagRef.current = false;
+
+    setPolling(true);
+
+    const oneSecond = new Promise((resolve) => setTimeout(resolve, 1500));
+    const axiosPromise = axios.get(API_ENDPOINT);
+    const animateRequestPromise = animateRequest();
+
+    Promise.allSettled([axiosPromise, animateRequestPromise]).then(
+      async ([axiosResult]) => {
+        if (!isMountedRef.current) return;
+
+        const requestSuccess = axiosResult.status === "fulfilled";
+        await animateResponse(requestSuccess);
+
+        if (requestSuccess) {
+          if (isMountedRef.current && isPollingRef.current) {
+            processRequestsAtInterval();
+          }
+        } else {
+          if (isMountedRef.current && isPollingRef.current) {
+            oneSecond.then(() => {
+              if (isMountedRef.current && isPollingRef.current) {
+                poll();
+              }
+            });
+          }
         }
       }
+    );
+  }, []);
+
+  const trueStop = useCallback(() => {
+    setAnimationRunning(false);
+    setPolling(false);
+    resetFlagRef.current = true;
+    badCountRef.current = 0;
+    isPollingRef.current = false;
+    if (animationIntervalRef.current)
+      clearInterval(animationIntervalRef.current);
+    if (resetPollingTimeoutRef.current)
+      clearTimeout(resetPollingTimeoutRef.current);
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      isPollingRef.current = false;
+      if (animationIntervalRef.current)
+        clearInterval(animationIntervalRef.current);
     };
-
-    // Mark the initial request as started
-    initialRequestRef.current = true;
-
-    // Begin the request attempt
-    await attemptInitialRequest();
-  }, [startInvoking, createRequest, createResponse]);
+  }, []);
 
   return (
     <>
@@ -409,8 +436,11 @@ const TestApiKeyModal = () => {
                 <img className="aspect-square h-14" src={serverImage} />
               </div>
               <div className="flex-1"></div>
-              <div>
-                <img className="aspect-square h-14 rounded" src={apiImage} />
+              <div className="relative" ref={apiImageDivRef}>
+                <img
+                  className="relative aspect-square h-14 rounded z-10"
+                  src={apiImage}
+                />
               </div>
               <div
                 className="absolute h-14 w-full -z-10"
@@ -425,54 +455,54 @@ const TestApiKeyModal = () => {
             <div className="group my-0.5">
               <input
                 type="range"
-                disabled={invoking}
                 name=""
                 id=""
-                className={`${
-                  invoking ? "cursor-not-allowed" : "cursor-pointer"
-                } w-full accent-purple-400`}
+                className={`cursor-pointer w-full accent-purple-400`}
                 min={1}
                 max={100}
-                value={rangeValue}
-                onChange={(e) => setRangeValue(Number(e.target.value))}
-                // style={{
-                //   background: `linear-gradient(to right, #A855F7 ${
-                //     rangeValue === 1 ? 0 : rangeValue * 4.8
-                //   }%, #705070 ${rangeValue === 1 ? 0 : rangeValue * 4.8}%)`, // Updated gray color
-                // }}
+                value={rangeValueRef.current}
+                onChange={(e) => {
+                  rangeValueRef.current = parseInt(e.target.value);
+                  setRangeValue(rangeValueRef.current);
+                  if (animationRunning) processRequestsAtInterval();
+                }}
               />
             </div>
             <div className="flex mt-2.5 w-full justify-center space-x-2.5">
-              {!invoking && !isInitialRequestRunning && (
+              {!(polling || animationRunning) && (
                 <button
                   type="button"
+                  onClick={() => {
+                    isPollingRef.current = true;
+                    poll();
+                  }}
                   disabled={loading}
                   className={`${
                     loading
                       ? "bg-gray-500 cursor-not-allowed border-black/20 text-white/60"
                       : "bg-green-500/80 hover:bg-green-500 border-green-600/20 cursor-pointer"
                   } border px-8 py-2 rounded transition-colors ease-out truncate text-xs sm:text-base`}
-                  onClick={initialRequest}
                 >
                   Start
                 </button>
               )}
-              {(invoking || isInitialRequestRunning) && (
+              {(polling || animationRunning) && (
                 <button
                   type="button"
+                  onClick={trueStop}
                   disabled={loading}
                   className={`${
                     loading
                       ? "bg-gray-500 cursor-not-allowed border-black/20 text-white/60"
                       : "bg-red-500/80 hover:bg-red-500 border-red-600/20 cursor-pointer"
                   } border px-8 py-2 rounded transition-colors ease-out truncate text-xs sm:text-base`}
-                  onClick={stopInvoking}
                 >
                   Stop
                 </button>
               )}
               <button
                 type="button"
+                onClick={toggleTestServer}
                 disabled={loading}
                 className={`${
                   loading
@@ -481,6 +511,7 @@ const TestApiKeyModal = () => {
                 } border flex-1 px-4 py-2 rounded transition-colors ease-out truncate text-xs sm:text-base`}
               >
                 Reset Invocation Quota
+                {/* Toggle Response Type */}
               </button>
             </div>
           </div>
@@ -489,5 +520,16 @@ const TestApiKeyModal = () => {
     </>
   );
 };
+
+function toggleTestServer() {
+  axios
+    .post("http://localhost:3000")
+    .then((response) => {
+      console.log(response.data);
+    })
+    .catch((error) => {
+      console.error("Error toggling server:", error);
+    });
+}
 
 export default TestApiKeyModal;
