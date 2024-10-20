@@ -13,8 +13,8 @@ import apiImage from "../assets/images/api.png";
 // css
 import "../css/slider.css";
 
-// const API_ENDPOINT = import.meta.env.VITE_ApiKeyThrottledApi as string;
-const API_ENDPOINT = "http://localhost:3000";
+const API_ENDPOINT = import.meta.env.VITE_ApiKeyThrottledApi as string;
+// const API_ENDPOINT = "http://MyALB-2076243712.us-east-1.elb.amazonaws.com";
 
 const TestApiKeyModal = () => {
   const apiImageDivRef = useRef<HTMLDivElement | null>(null);
@@ -37,6 +37,7 @@ const TestApiKeyModal = () => {
   const resetFlagRef = useRef(false);
   const resetPollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  const [activeRequestCount, setActiveRequestCount] = useState(0);
   const {
     sessionData,
     invokeBackendService,
@@ -69,6 +70,10 @@ const TestApiKeyModal = () => {
     setInitialLoad(false);
     setLoading(false);
   }, [invokeBackendService]);
+
+  useEffect(() => {
+    console.log("sessionData", sessionData);
+  }, [sessionData]);
 
   const refreshApiKey = useCallback(async () => {
     if (loading) return;
@@ -201,6 +206,10 @@ const TestApiKeyModal = () => {
     return promise;
   }, []);
 
+  useEffect(() => {
+    console.log("activeRequestCount", activeRequestCount);
+  }, [activeRequestCount]);
+
   const animateResponse = useCallback((success: boolean) => {
     const parent = document.createElement("div");
     parent.classList.add(
@@ -240,6 +249,7 @@ const TestApiKeyModal = () => {
           durationArray[Math.floor(Math.random() * durationArray.length)],
         complete: () => {
           animationContainerRef.current?.removeChild(parent);
+          setActiveRequestCount((prev) => prev - 1);
           resolve(undefined);
         },
       });
@@ -270,7 +280,13 @@ const TestApiKeyModal = () => {
       clearInterval(animationIntervalRef.current);
 
     animationIntervalRef.current = setInterval(() => {
-      const axiosPromise = axios.get(API_ENDPOINT);
+      const axiosPromise = axios.get(API_ENDPOINT, {
+        // api key
+        headers: {
+          "x-api-key": sessionData.key,
+        },
+      });
+      setActiveRequestCount((prev) => prev + 1);
       const animateRequestPromise = animateRequest();
 
       axiosPromise
@@ -293,7 +309,7 @@ const TestApiKeyModal = () => {
         }
       );
     }, 1000 / rangeValueRef.current);
-  }, [animationIntervalRef.current]);
+  }, [animationIntervalRef.current, sessionData]);
 
   const poll = useCallback(() => {
     if (!isPollingRef.current || !isMountedRef.current) return;
@@ -303,12 +319,19 @@ const TestApiKeyModal = () => {
     setPolling(true);
 
     const oneSecond = new Promise((resolve) => setTimeout(resolve, 1500));
-    const axiosPromise = axios.get(API_ENDPOINT);
+    const axiosPromise = axios.get(API_ENDPOINT, {
+      headers: {
+        "x-api-key": sessionData.key,
+      },
+    });
+    setActiveRequestCount((prev) => prev + 1);
     const animateRequestPromise = animateRequest();
 
     Promise.allSettled([axiosPromise, animateRequestPromise]).then(
       async ([axiosResult]) => {
         if (!isMountedRef.current) return;
+
+        console.log("axiosResult", axiosResult.status);
 
         const requestSuccess = axiosResult.status === "fulfilled";
         await animateResponse(requestSuccess);
@@ -328,7 +351,7 @@ const TestApiKeyModal = () => {
         }
       }
     );
-  }, []);
+  }, [sessionData]);
 
   const trueStop = useCallback(() => {
     setAnimationRunning(false);
@@ -476,9 +499,9 @@ const TestApiKeyModal = () => {
                     isPollingRef.current = true;
                     poll();
                   }}
-                  disabled={loading}
+                  disabled={loading || activeRequestCount > 0}
                   className={`${
-                    loading
+                    loading || activeRequestCount > 0
                       ? "bg-gray-500 cursor-not-allowed border-black/20 text-white/60"
                       : "bg-green-500/80 hover:bg-green-500 border-green-600/20 cursor-pointer"
                   } border px-8 py-2 rounded transition-colors ease-out truncate text-xs sm:text-base`}

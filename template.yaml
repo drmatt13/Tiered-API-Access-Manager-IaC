@@ -13,6 +13,58 @@ Parameters:
     Type: String
     Default: user@example.com
     Description: Email address to receive DLQ alarm notifications
+  VpcCidr:
+    Type: String
+    Default: 192.168.0.0/16
+    Description: CIDR block for the VPC.
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 192.168.1.0/24
+    Description: CIDR block for public subnet 1.
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 192.168.2.0/24
+    Description: CIDR block for public subnet 2.
+  PrivateSubnet1Cidr:
+    Type: String
+    Default: 192.168.3.0/24
+    Description: CIDR block for private subnet 1.
+  PrivateSubnet2Cidr:
+    Type: String
+    Default: 192.168.4.0/24
+    Description: CIDR block for private subnet 2.
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    Description: EC2 instance type.
+  AmiId:
+    Type: String
+    Default: ami-06b21ccaeff8cd686
+    Description: AMI ID for the EC2 instances.
+  PaidUsagePlanQuotaLimit:
+    Type: Number
+    Default: '50000'
+    Description: The maximum number of requests for the Paid plan per day.
+  PaidUsagePlanBurstLimit:
+    Type: Number
+    Default: '100'
+    Description: The burst limit for the Paid plan.
+  PaidUsagePlanRateLimit:
+    Type: Number
+    Default: '50'
+    Description: The rate limit for the Paid plan.
+  FreeUsagePlanQuotaLimit:
+    Type: Number
+    Default: '500'
+    Description: The maximum number of requests for the Free plan per day.
+  FreeUsagePlanBurstLimit:
+    Type: Number
+    Default: '10'
+    Description: The burst limit for the Free plan.
+  FreeUsagePlanRateLimit:
+    Type: Number
+    Default: '5'
+    Description: The rate limit for the Free plan.
 
 Outputs:
   FrontEndApiUrl:
@@ -27,9 +79,11 @@ Outputs:
   ApiKeyThrottledApi:
     Description: API Key for the Throttled API Gateway
     Value: !Sub https://${ApiKeyThrottledApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+  LoadBalancerDNSName:
+    Description: The DNS name of the load balancer
+    Value: !GetAtt LoadBalancer.DNSName
 
 Resources:
-
   # TEMP COGNITO Functions --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   PreSignUpFunction:
     Type: AWS::Serverless::Function
@@ -147,6 +201,150 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       SourceArn: !GetAtt UserPool.Arn
 
+  # FrontEnd API --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  FrontEndApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      EndpointConfiguration: REGIONAL
+      DefinitionBody:
+        openapi: '3.0'
+        info: {}
+        paths:
+          /make-credit-card-payment:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MakeCreditCardPaymentFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /get-account-credit-card:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountCreditCardFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /edit-account-credit-card:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+            delete:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /get-account-api-key:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountApiKeyFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /reset-account-api-key:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetAccountApiKeyFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /delete-account:
+            delete:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteAccountFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /get-account-payment-history:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountPaymentHistoryFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-reset-account:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetAccountFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-format-account:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FormatAccountFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-create-test-user:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateTestUserFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-invoke-renew-subscriptions:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${InvokeRenewSubscriptionsFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+          /dev-poll-all-payments:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PollAllPaymentsFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
+      Cors:
+        AllowOrigin: '''*'''
+        AllowMethods: '''GET,OPTIONS,POST,PUT,DELETE'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        MaxAge: 5
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+
   # DynamoDB Tables --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   ApiKeysTable:
     Type: AWS::DynamoDB::Table
@@ -186,6 +384,18 @@ Resources:
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
   CreditCardsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+  ApiKeyIdMapTable:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
@@ -1088,239 +1298,278 @@ Resources:
       TreatMissingData: notBreaching
   # ^ Resourece-based policies to allow Cognito to invoke the Lambda function
 
-  # API --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  FrontEndApi:
-    Type: AWS::Serverless::Api
+  # VPC, Subnets, Route Tables, Security Groups, EC2 Launch Template, Auto Scaling Group, Application Load Balancer ------------------------------------------------------------------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
     Properties:
-      StageName: prod
-      DefinitionBody:
-        openapi: '3.0'
-        info: {}
-        paths:
-          /make-credit-card-payment:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MakeCreditCardPaymentFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /get-account-credit-card:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountCreditCardFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /edit-account-credit-card:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-            put:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-            delete:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditAccountCreditCardFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /get-account-api-key:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountApiKeyFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /reset-account-api-key:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetAccountApiKeyFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /delete-account:
-            delete:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteAccountFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /get-account-payment-history:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAccountPaymentHistoryFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-reset-account:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetAccountFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-format-account:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FormatAccountFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-create-test-user:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateTestUserFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-invoke-renew-subscriptions:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${InvokeRenewSubscriptionsFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-          /dev-poll-all-payments:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PollAllPaymentsFunction.Arn}/invocations
-              responses: {}
-              security:
-                - CognitoAuthorizer: []
-      Cors:
-        AllowOrigin: '''*'''
-        AllowMethods: '''GET,OPTIONS,POST,PUT,DELETE'''
-        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
-        MaxAge: 5
-      Auth:
-        Authorizers:
-          CognitoAuthorizer:
-            UserPoolArn: !GetAtt UserPool.Arn
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  # Create an Internet Gateway and attach it to the VPC
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  # Create Public and Private Subnets
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet1Cidr
+      AvailabilityZone: us-east-1a
+      MapPublicIpOnLaunch: true
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet2Cidr
+      AvailabilityZone: us-east-1b
+      MapPublicIpOnLaunch: true
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet1Cidr
+      AvailabilityZone: us-east-1a
+      MapPublicIpOnLaunch: true # This should be false for private subnets but set to true for testing purposes to avoid NAT Gateway setup
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet2Cidr
+      AvailabilityZone: us-east-1b
+      MapPublicIpOnLaunch: true # This should be false for private subnets but set to true for testing purposes to avoid NAT Gateway setup
+
+  # Route Table for Public Subnets
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Associate Route Table with Subnets 
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Route Table for Private Subnets
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  # Route for Private Subnets to use the Internet Gateway
+  PublicRouteForPrivateSubnetsOverride:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Associate Route Table with Subnets
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security Group for EC2 instances in private subnets
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow traffic from ALB to EC2 instances and allow outbound
+        traffic to the Internet
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 192.168.0.0/16 # Allow traffic from within the VPC (e.g., from the ALB)
+      # Allow outbound traffic to the Internet, DELETE AND REPLACE WITH NAT GATEWAY LOGIC
+      SecurityGroupEgress:
+        - IpProtocol: '-1' # Allow all protocols
+          FromPort: -1 # Allow all ports
+          ToPort: -1 # Allow all ports
+          CidrIp: 0.0.0.0/0 # Allow outbound traffic to anywhere (including the internet via the IGW)
+
+  # Security Group for ALB (internet-facing)
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP traffic from the internet to ALB and forward to EC2 instances
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0 # Allow traffic from anywhere on port 80 (HTTP)
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          DestinationSecurityGroupId: !Ref EC2SecurityGroup # Forward traffic to EC2 Security Group
+
+  # Create Launch Template for EC2 instances
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${AWS::StackName}-LaunchTemplate
+      LaunchTemplateData:
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup
+        UserData: !Base64 |
+          #!/bin/bash
+          # Install Git
+          sudo yum install git -y
+          # Install Node.js
+          curl -sL https://rpm.nodesource.com/setup_18.x | sudo bash -
+          sudo dnf install nodejs -y
+          # Clone the GitHub repository
+          cd /home/ec2-user
+          git clone https://github.com/drmatt13/test-express-server.git
+          # Navigate to the cloned repo
+          cd test-express-server
+          # Install Node.js dependencies
+          sudo npm install
+          # Start the server
+          sudo npm run server
+
+  # Create Auto Scaling Group
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: '1'
+      MaxSize: '2'
+      DesiredCapacity: '1'
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      HealthCheckType: EC2 # or ELB if you want health checks from the ALB
+      HealthCheckGracePeriod: 300 # 300 seconds (5 minutes)
+
+  # Create Target Group for ALB
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+
+  # Create ALB
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: MyALB
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Scheme: internet-facing
+
+  # Create ALB Listener
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # ApiKey Throttled API --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   ApiKeyThrottledApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: prod
+      EndpointConfiguration: REGIONAL
       DefinitionBody:
-        openapi: '3.0'
+        openapi: 3.0.1
         info: {}
         paths:
           /:
             get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TestFunction.Arn}/invocations
-              responses: {}
               security:
-                - api_key: [] # Enforce API Key required for this method
+                - api-key: [] # Require API key for GET
+              x-amazon-apigateway-integration:
+                uri: !Sub http://${LoadBalancer.DNSName}
+                httpMethod: GET
+                type: http_proxy
+                connectionType: INTERNET
+              responses: {}
         components:
           securitySchemes:
-            api_key:
+            api-key:
               type: apiKey
               name: x-api-key
               in: header
+              x-amazon-apigateway-api-key-source: HEADER
       Cors:
         AllowOrigin: '''*'''
         AllowMethods: '''GET,OPTIONS,POST,PUT,DELETE'''
         AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
         MaxAge: 5
-  TestFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/test-function
-      Handler: index.handler
-      Runtime: nodejs20.x
-      Events:
-        ApiKeyThrottledApiGET:
-          Type: Api
-          Properties:
-            Path: /
-            Method: GET
-            RestApiId: !Ref ApiKeyThrottledApi
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
   UsagePlanPaid:
     Type: AWS::ApiGateway::UsagePlan
     Properties:
+      UsagePlanName: Paid
+      Description: Paid Usage Plan
       ApiStages:
         - ApiId: !Ref ApiKeyThrottledApi
-          Stage: prod
-      Description: Paid Usage Plan
+          Stage: !Ref ApiKeyThrottledApi.Stage
       Quota:
-        Limit: 5000
-        Period: MONTH
+        Limit: !Ref PaidUsagePlanQuotaLimit
+        Period: DAY
       Throttle:
-        BurstLimit: 200
-        RateLimit: 100
-      UsagePlanName: Paid
-
+        BurstLimit: !Ref PaidUsagePlanBurstLimit
+        RateLimit: !Ref PaidUsagePlanRateLimit
   UsagePlanFree:
     Type: AWS::ApiGateway::UsagePlan
     Properties:
+      UsagePlanName: Free
+      Description: Free Usage Plan
       ApiStages:
         - ApiId: !Ref ApiKeyThrottledApi
-          Stage: prod
-      Description: Free Usage Plan
+          Stage: !Ref ApiKeyThrottledApi.Stage
       Quota:
-        Limit: 100
-        Period: MONTH
+        Limit: !Ref FreeUsagePlanQuotaLimit
+        Period: DAY
       Throttle:
-        BurstLimit: 1
-        RateLimit: 1
-      UsagePlanName: Free
-  ApiKeyIdMapTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      AttributeDefinitions:
-        - AttributeName: user_id
-          AttributeType: S
-      BillingMode: PAY_PER_REQUEST
-      KeySchema:
-        - AttributeName: user_id
-          KeyType: HASH
-      StreamSpecification:
-        StreamViewType: NEW_AND_OLD_IMAGES
+        BurstLimit: !Ref FreeUsagePlanBurstLimit
+        RateLimit: !Ref FreeUsagePlanRateLimit
 
 Metadata:
   AWS::Composer::Groups:
@@ -1417,10 +1666,26 @@ Metadata:
       Label: Throttled API
       Members:
         - ApiKeyThrottledApi
-        - TestFunction
         - UsagePlanPaid
         - UsagePlanFree
     Group14:
       Label: DynamoDB Streams
       Members:
         - DynamoDbStreamApiKeyHandlerFunction
+    Group15:
+      Label: VPC, Subnets, Route Tables, Security Groups, EC2 Launch Template, Auto
+        Scaling Group, Application Load Balancer
+      Members:
+        - PrivateSubnet2
+        - EC2SecurityGroup
+        - ALBSecurityGroup
+        - LoadBalancer
+        - TargetGroup
+        - LaunchTemplate
+        - AutoScalingGroup
+        - ALBListener
+    Group16:
+      Label: Group16
+      Members:
+        - Group13
+        - Group15
