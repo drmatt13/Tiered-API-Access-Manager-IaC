@@ -46,9 +46,9 @@ Parameters:
     Default: 192.168.4.0/24
     Description: CIDR block for private subnet 2.
   AmiId:
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
-    Description: AMI ID for the Amazon Linux 2023 EC2 instances. This can be a direct AMI ID or an SSM Parameter pointing to an AMI ID.
+    Type: String
+    Default: ami-06b21ccaeff8cd686
+    Description: AMI ID for the EC2 instances.
   InstanceType:
     Type: String
     Default: t2.micro
@@ -83,13 +83,16 @@ Parameters:
     Description: Email address to receive DLQ alarm notifications
   IncludePreSignUpTrigger:
     Type: String
-    Default: "false"
-    AllowedValues: ["true", "false"]
-    Description: "Set to true if you want to include the PreSignUp Lambda trigger."
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Set to true if you want to include the PreSignUp Lambda trigger.
 
 Conditions:
-  UsePreSignUp: !Equals [!Ref IncludePreSignUpTrigger, "true"]
-
+  UsePreSignUp: !Equals
+    - !Ref IncludePreSignUpTrigger
+    - 'true'
 
 Outputs:
   FrontEndApiUrl:
@@ -104,9 +107,16 @@ Outputs:
   ApiKeyThrottledApi:
     Description: API Key for the Throttled API Gateway
     Value: !Sub https://${ApiKeyThrottledApi}.execute-api.${AWS::Region}.amazonaws.com/prod
-  LoadBalancerDNSName:
-    Description: The DNS name of the load balancer
-    Value: !GetAtt LoadBalancer.DNSName
+  FrontEndWebsiteURL:
+    Description: URL for the S3 bucket website
+    Value: !Sub http://${S3StaticHostingBucket}.s3-website-${AWS::Region}.amazonaws.com
+    Export:
+      Name: WebsiteURL
+  BucketName:
+    Description: Name of the S3 bucket
+    Value: !Ref S3StaticHostingBucket
+    Export:
+      Name: BucketName
 
 Resources:
   # COGNITO --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -119,7 +129,7 @@ Resources:
         PreSignUp: !If
           - UsePreSignUp
           - !GetAtt PreSignUpFunction.Arn
-          - !Ref "AWS::NoValue"  # This removes the PreSignUp if the condition is false
+          - !Ref AWS::NoValue # This removes the PreSignUp if the condition is false
       Schema:
         - AttributeDataType: String
           Name: email
@@ -1496,7 +1506,8 @@ Resources:
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow traffic from ALB to EC2 instances and allow outbound traffic to the Internet via NAT Gateway
+      GroupDescription: Allow traffic from ALB to EC2 instances and allow outbound
+        traffic to the Internet via NAT Gateway
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -1538,20 +1549,35 @@ Resources:
           - !Ref EC2SecurityGroup
         UserData: !Base64 |
           #!/bin/bash
-          # Install Git
-          sudo yum install git -y
           # Install Node.js
           curl -sL https://rpm.nodesource.com/setup_18.x | sudo bash -
           sudo dnf install nodejs -y
-          # Clone the GitHub repository
+          # Navigate to the home directory
           cd /home/ec2-user
-          git clone https://github.com/drmatt13/test-express-server.git
-          # Navigate to the cloned repo
+          # Create a directory for the test Node.js Express server
+          mkdir test-express-server
           cd test-express-server
-          # Install Node.js dependencies
-          sudo npm install
+          # Initialize the Node.js project and install dependencies
+          sudo npm init -y
+          sudo npm install express cors
+          # Create the server.js file
+          cat << 'EOF' > server.js
+          const express = require("express");
+          const cors = require("cors");
+          const app = express();
+          app.use(cors({ origin: "*" }));
+          app.get("/", (req, res) => {
+            res.json({ success: true, message: "Hello World" });
+          });
+          app.get("/health", (req, res) => {
+            res.status(200).json({ success: true, message: "Health check passed" });
+          });
+          app.listen(80, () => {
+            console.log("Server is running on port 80");
+          });
+          EOF
           # Start the server
-          sudo npm run server
+          sudo node server.js
 
   # Create Auto Scaling Group
   AutoScalingGroup:
@@ -1665,6 +1691,25 @@ Resources:
       Throttle:
         BurstLimit: !Ref FreeUsagePlanBurstLimit
         RateLimit: !Ref FreeUsagePlanRateLimit
+
+  # S3 Bucket for Website Hosting --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  S3StaticHostingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-website-bucket
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+  S3StaticHostingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3StaticHostingBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${S3StaticHostingBucket}/*
 
 Metadata:
   AWS::Composer::Groups:
