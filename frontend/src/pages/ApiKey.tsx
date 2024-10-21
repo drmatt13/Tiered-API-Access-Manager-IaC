@@ -86,7 +86,7 @@ function ApiKey() {
       return setLoading(false);
     }
     const upgradeChoice = confirm(
-      "Pay $20 to upgrade your account for 1 month? This will allow you to make 1000 api requests per day."
+      "Would you like to upgrade your account api key to the paid tier?"
     );
     if (!upgradeChoice) return setLoading(false);
     const recurring = confirm(

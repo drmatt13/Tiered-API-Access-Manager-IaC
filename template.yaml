@@ -13,6 +13,22 @@ Parameters:
     Type: String
     Default: 192.168.0.0/16
     Description: CIDR block for the VPC.
+  PublicSubnet1Az:
+    Type: String
+    Default: us-east-1a
+    Description: Availability Zone for public subnet 1.
+  PublicSubnet2Az:
+    Type: String
+    Default: us-east-1b
+    Description: Availability Zone for public subnet 2.
+  PrivateSubnet1Az:
+    Type: String
+    Default: us-east-1a
+    Description: Availability Zone for private subnet 1.
+  PrivateSubnet2Az:
+    Type: String
+    Default: us-east-1b
+    Description: Availability Zone for private subnet 2.
   PublicSubnet1Cidr:
     Type: String
     Default: 192.168.1.0/24
@@ -30,9 +46,9 @@ Parameters:
     Default: 192.168.4.0/24
     Description: CIDR block for private subnet 2.
   AmiId:
-    Type: String
-    Default: ami-06b21ccaeff8cd686
-    Description: AMI ID for the EC2 instances.
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: AMI ID for the Amazon Linux 2023 EC2 instances. This can be a direct AMI ID or an SSM Parameter pointing to an AMI ID.
   InstanceType:
     Type: String
     Default: t2.micro
@@ -65,7 +81,16 @@ Parameters:
     Type: String
     Default: user@example.com
     Description: Email address to receive DLQ alarm notifications
-    
+  IncludePreSignUpTrigger:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: "Set to true if you want to include the PreSignUp Lambda trigger."
+
+Conditions:
+  UsePreSignUp: !Equals [!Ref IncludePreSignUpTrigger, "true"]
+
+
 Outputs:
   FrontEndApiUrl:
     Description: API Gateway endpoint URL for Prod stage
@@ -84,30 +109,6 @@ Outputs:
     Value: !GetAtt LoadBalancer.DNSName
 
 Resources:
-  # TEMP COGNITO Functions --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  PreSignUpFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: lambda/cognito-pre-signup-trigger
-      Handler: index.handler
-      Runtime: nodejs20.x
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - index.mts
-        External:
-          - '@aws-sdk/*'
-          - aws-sdk
-        Minify: false
-  PreSignUpLambdaPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !GetAtt PreSignUpFunction.Arn
-      Principal: cognito-idp.amazonaws.com
-      SourceArn: !GetAtt UserPool.Arn
-
   # COGNITO --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -115,7 +116,10 @@ Resources:
       LambdaConfig:
         PostConfirmation: !GetAtt CognitoPostConfirmationFunction.Arn
         CustomMessage: !GetAtt CognitoCustomMessageFunction.Arn
-        PreSignUp: !GetAtt PreSignUpFunction.Arn
+        PreSignUp: !If
+          - UsePreSignUp
+          - !GetAtt PreSignUpFunction.Arn
+          - !Ref "AWS::NoValue"  # This removes the PreSignUp if the condition is false
       Schema:
         - AttributeDataType: String
           Name: email
@@ -140,6 +144,28 @@ Resources:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       UserPoolId: !Ref UserPool
+  PreSignUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/cognito-pre-signup-trigger
+      Handler: index.handler
+      Runtime: nodejs20.x
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  PreSignUpLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt PreSignUpFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
   CognitoPostConfirmationFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -171,6 +197,13 @@ Resources:
           - '@aws-sdk/*'
           - aws-sdk
         Minify: false
+  PostConfirmationLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
   CognitoCustomMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -191,13 +224,6 @@ Resources:
     Properties:
       Action: lambda:InvokeFunction
       FunctionName: !GetAtt CognitoCustomMessageFunction.Arn
-      Principal: cognito-idp.amazonaws.com
-      SourceArn: !GetAtt UserPool.Arn
-  PostConfirmationLambdaPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
       Principal: cognito-idp.amazonaws.com
       SourceArn: !GetAtt UserPool.Arn
 
@@ -430,7 +456,6 @@ Resources:
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
           PAYMENTSUCCESSTOPIC_TOPIC_NAME: !GetAtt PaymentSuccessTopic.TopicName
           PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt PaymentSuccessTopic.TopicName
@@ -462,7 +487,6 @@ Resources:
         Variables:
           CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
@@ -496,7 +520,6 @@ Resources:
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
           USERPOOL_USER_POOL_ID: !Ref UserPool
           USERPOOL_USER_POOL_ARN: !GetAtt UserPool.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
@@ -550,7 +573,6 @@ Resources:
         Variables:
           APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
           APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -580,7 +602,6 @@ Resources:
         Variables:
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
@@ -610,7 +631,6 @@ Resources:
         Variables:
           CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
@@ -652,7 +672,6 @@ Resources:
         Variables:
           APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
           APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -688,7 +707,6 @@ Resources:
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -726,7 +744,6 @@ Resources:
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
           CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -764,7 +781,6 @@ Resources:
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
           CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -798,7 +814,6 @@ Resources:
         Variables:
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
@@ -836,7 +851,6 @@ Resources:
           RENEWSUBSCRIPTIONSQUEUE_QUEUE_NAME: !GetAtt RenewSubscriptionsQueue.QueueName
           RENEWSUBSCRIPTIONSQUEUE_QUEUE_ARN: !GetAtt RenewSubscriptionsQueue.Arn
           RENEWSUBSCRIPTIONSQUEUE_QUEUE_URL: !Ref RenewSubscriptionsQueue
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt RenewSubscriptionsQueue.QueueName
@@ -871,7 +885,6 @@ Resources:
           USAGE_PLAN_FREE_ID: !Ref UsagePlanFree
           APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
           APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - Statement:
             Effect: Allow
@@ -1103,7 +1116,6 @@ Resources:
           ACCOUNTCREATEDTOPIC_TOPIC_ARN: !Ref AccountCreatedTopic
           PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
           PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -1134,7 +1146,6 @@ Resources:
           PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
           PAYMENTFAILURETOPIC_TOPIC_NAME: !GetAtt PaymentFailureTopic.TopicName
           PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt PaymentFailureTopic.TopicName
@@ -1177,7 +1188,6 @@ Resources:
         Variables:
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
@@ -1198,9 +1208,6 @@ Resources:
       CodeUri: lambda/payment-failure
       Handler: index.handler
       Runtime: nodejs20.x
-      Environment:
-        Variables:
-          AWS_REGION: !Ref AWS::Region
       Events:
         PaymentFailureQueue:
           Type: SQS
@@ -1235,7 +1242,6 @@ Resources:
           USAGE_PLAN_FREE_ID: !Ref UsagePlanFree
           APIKEYIDMAPTABLE_TABLE_NAME: !Ref ApiKeyIdMapTable
           APIKEYIDMAPTABLE_TABLE_ARN: !GetAtt ApiKeyIdMapTable.Arn
-          AWS_REGION: !Ref AWS::Region
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
@@ -1397,35 +1403,44 @@ Resources:
       InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref VPC
 
+  # Create Elastic IP for NAT Gateway
+  NatElasticIP:
+    Type: AWS::EC2::EIP
+
+  # Create NAT Gateway
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatElasticIP.AllocationId
+      SubnetId: !Ref PublicSubnet1 # NAT Gateway needs to be in a public subnet
+
   # Create Public and Private Subnets
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Ref PublicSubnet1Cidr
-      AvailabilityZone: us-east-1a
+      AvailabilityZone: !Ref PublicSubnet1Az
       MapPublicIpOnLaunch: true
   PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Ref PublicSubnet2Cidr
-      AvailabilityZone: us-east-1b
+      AvailabilityZone: !Ref PublicSubnet2Az
       MapPublicIpOnLaunch: true
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Ref PrivateSubnet1Cidr
-      AvailabilityZone: us-east-1a
-      MapPublicIpOnLaunch: true # This should be false for private subnets but set to true for testing purposes to avoid NAT Gateway setup
+      AvailabilityZone: !Ref PrivateSubnet1Az
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Ref PrivateSubnet2Cidr
-      AvailabilityZone: us-east-1b
-      MapPublicIpOnLaunch: true # This should be false for private subnets but set to true for testing purposes to avoid NAT Gateway setup
+      AvailabilityZone: !Ref PrivateSubnet2Az
 
   # Route Table for Public Subnets
   PublicRouteTable:
@@ -1457,13 +1472,13 @@ Resources:
     Properties:
       VpcId: !Ref VPC
 
-  # Route for Private Subnets to use the Internet Gateway
-  PublicRouteForPrivateSubnetsOverride:
+  # Route for Private Subnets to use the NAT Gateway
+  PrivateRouteForNatGateway:
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      NatGatewayId: !Ref NatGateway
 
   # Associate Route Table with Subnets
   PrivateSubnet1RouteTableAssociation:
@@ -1481,20 +1496,18 @@ Resources:
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow traffic from ALB to EC2 instances and allow outbound
-        traffic to the Internet
+      GroupDescription: Allow traffic from ALB to EC2 instances and allow outbound traffic to the Internet via NAT Gateway
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 192.168.0.0/16 # Allow traffic from within the VPC (e.g., from the ALB)
-      # Allow outbound traffic to the Internet, DELETE AND REPLACE WITH NAT GATEWAY LOGIC
       SecurityGroupEgress:
         - IpProtocol: '-1' # Allow all protocols
           FromPort: -1 # Allow all ports
           ToPort: -1 # Allow all ports
-          CidrIp: 0.0.0.0/0 # Allow outbound traffic to anywhere (including the internet via the IGW)
+          CidrIp: 0.0.0.0/0 # Allow outbound traffic (this will be routed through the NAT Gateway for private subnets)
 
   # Security Group for ALB (internet-facing)
   ALBSecurityGroup:
