@@ -9,10 +9,6 @@ Globals:
     Timeout: 3
 
 Parameters:
-  NotificationEmail:
-    Type: String
-    Default: user@example.com
-    Description: Email address to receive DLQ alarm notifications
   VpcCidr:
     Type: String
     Default: 192.168.0.0/16
@@ -65,7 +61,11 @@ Parameters:
     Type: Number
     Default: '5'
     Description: The rate limit for the Free plan.
-
+  NotificationEmail:
+    Type: String
+    Default: user@example.com
+    Description: Email address to receive DLQ alarm notifications
+    
 Outputs:
   FrontEndApiUrl:
     Description: API Gateway endpoint URL for Prod stage

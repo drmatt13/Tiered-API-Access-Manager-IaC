@@ -90,7 +90,7 @@ export const handler = async (event: SQSEvent) => {
             }),
           })
         );
-        return;
+        continue;
       }
 
       // if (!recurring) invoke -> (payment failed topic) with (recurring === false)
@@ -105,7 +105,7 @@ export const handler = async (event: SQSEvent) => {
             }),
           })
         );
-        return;
+        continue;
       }
 
       // if (recurring && !valid) invoke -> (payment failed topic) with (failedPayment === true)
@@ -136,7 +136,7 @@ export const handler = async (event: SQSEvent) => {
             },
           })
         );
-        return;
+        continue;
       }
 
       // if (recurring && valid) invoke -> (payment failed topic) with (amount = 20)
@@ -154,7 +154,7 @@ export const handler = async (event: SQSEvent) => {
           })
         );
         console.log("Payment successful for user:", res);
-        return;
+        continue;
       }
     }
   } catch (error) {
