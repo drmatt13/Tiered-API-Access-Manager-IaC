@@ -27,7 +27,7 @@ const headers = {
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Initialize the DynamoDB client
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 export const handler = async (
   event: APIGatewayProxyEvent

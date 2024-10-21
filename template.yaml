@@ -13,6 +13,10 @@ Parameters:
     Type: String
     Default: user@example.com
     Description: Email address to receive DLQ alarm notifications
+  Region:
+    Type: String
+    Default: us-east-1
+    Description: AWS region to deploy the application
   VpcCidr:
     Type: String
     Default: 192.168.0.0/16
@@ -33,14 +37,14 @@ Parameters:
     Type: String
     Default: 192.168.4.0/24
     Description: CIDR block for private subnet 2.
-  InstanceType:
-    Type: String
-    Default: t2.micro
-    Description: EC2 instance type.
   AmiId:
     Type: String
     Default: ami-06b21ccaeff8cd686
     Description: AMI ID for the EC2 instances.
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    Description: EC2 instance type.
   PaidUsagePlanQuotaLimit:
     Type: Number
     Default: '50000'
@@ -335,6 +339,15 @@ Resources:
               responses: {}
               security:
                 - CognitoAuthorizer: []
+          /dev-reset-invocation-quota:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResetInvocationQuotaFunction.Arn}/invocations
+              responses: {}
+              security:
+                - CognitoAuthorizer: []
       Cors:
         AllowOrigin: '''*'''
         AllowMethods: '''GET,OPTIONS,POST,PUT,DELETE'''
@@ -421,6 +434,7 @@ Resources:
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
           PAYMENTSUCCESSTOPIC_TOPIC_NAME: !GetAtt PaymentSuccessTopic.TopicName
           PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt PaymentSuccessTopic.TopicName
@@ -452,6 +466,7 @@ Resources:
         Variables:
           CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
@@ -485,6 +500,7 @@ Resources:
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
           USERPOOL_USER_POOL_ID: !Ref UserPool
           USERPOOL_USER_POOL_ARN: !GetAtt UserPool.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
@@ -538,6 +554,7 @@ Resources:
         Variables:
           APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
           APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -567,6 +584,7 @@ Resources:
         Variables:
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
@@ -596,6 +614,7 @@ Resources:
         Variables:
           CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CreditCardsTable
@@ -637,6 +656,7 @@ Resources:
         Variables:
           APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
           APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -672,6 +692,7 @@ Resources:
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -709,6 +730,7 @@ Resources:
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
           CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -746,6 +768,7 @@ Resources:
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
           CREDITCARDSTABLE_TABLE_NAME: !Ref CreditCardsTable
           CREDITCARDSTABLE_TABLE_ARN: !GetAtt CreditCardsTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -779,6 +802,7 @@ Resources:
         Variables:
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
@@ -816,9 +840,64 @@ Resources:
           RENEWSUBSCRIPTIONSQUEUE_QUEUE_NAME: !GetAtt RenewSubscriptionsQueue.QueueName
           RENEWSUBSCRIPTIONSQUEUE_QUEUE_ARN: !GetAtt RenewSubscriptionsQueue.Arn
           RENEWSUBSCRIPTIONSQUEUE_QUEUE_URL: !Ref RenewSubscriptionsQueue
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt RenewSubscriptionsQueue.QueueName
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+  ResetInvocationQuotaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/dev-reset-invocation-quota
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Events:
+        FrontEndApiGETdevinvokemonthlybilling:
+          Type: Api
+          Properties:
+            Path: /dev-reset-invocation-quota
+            Method: GET
+            RestApiId: !Ref FrontEndApi
+      Environment:
+        Variables:
+          APIKEYIDMAPTABLE_TABLE_NAME: !Ref ApiKeyIdMapTable
+          APIKEYIDMAPTABLE_TABLE_ARN: !GetAtt ApiKeyIdMapTable.Arn
+          APIKEYTHROTTLEDAPI_API_URL: !Sub https://${ApiKeyThrottledApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiKeyThrottledApi.Stage}
+          USAGE_PLAN_PAID_ID: !Ref UsagePlanPaid
+          USAGE_PLAN_FREE_ID: !Ref UsagePlanFree
+          APIKEYSTABLE_TABLE_NAME: !Ref ApiKeysTable
+          APIKEYSTABLE_TABLE_ARN: !GetAtt ApiKeysTable.Arn
+          AWS_REGION: !Ref AWS::Region
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action:
+              - execute-api:Invoke
+              - apigateway:POST
+              - apigateway:GET
+              - apigateway:DELETE
+              - apigateway:PUT
+              - apigateway:PATCH
+            Resource:
+              - '*'
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApiKeyIdMapTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:Invoke
+              Resource:
+                - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiKeyThrottledApi}/${ApiKeyThrottledApi.Stage}/*
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApiKeysTable
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -1028,6 +1107,7 @@ Resources:
           ACCOUNTCREATEDTOPIC_TOPIC_ARN: !Ref AccountCreatedTopic
           PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
           PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiKeysTable
@@ -1058,6 +1138,7 @@ Resources:
           PAYMENTSUCCESSTOPIC_TOPIC_ARN: !Ref PaymentSuccessTopic
           PAYMENTFAILURETOPIC_TOPIC_NAME: !GetAtt PaymentFailureTopic.TopicName
           PAYMENTFAILURETOPIC_TOPIC_ARN: !Ref PaymentFailureTopic
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt PaymentFailureTopic.TopicName
@@ -1100,6 +1181,7 @@ Resources:
         Variables:
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
@@ -1120,6 +1202,9 @@ Resources:
       CodeUri: lambda/payment-failure
       Handler: index.handler
       Runtime: nodejs20.x
+      Environment:
+        Variables:
+          AWS_REGION: !Ref AWS::Region
       Events:
         PaymentFailureQueue:
           Type: SQS
@@ -1154,6 +1239,7 @@ Resources:
           USAGE_PLAN_FREE_ID: !Ref UsagePlanFree
           APIKEYIDMAPTABLE_TABLE_NAME: !Ref ApiKeyIdMapTable
           APIKEYIDMAPTABLE_TABLE_ARN: !GetAtt ApiKeyIdMapTable.Arn
+          AWS_REGION: !Ref AWS::Region
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt DynamoDbStreamApiKeyHandlerDLQ.QueueName
@@ -1617,11 +1703,10 @@ Metadata:
     Group7:
       Label: DynamoDB Tables
       Members:
-        - ApiKeysTable
         - PaymentsTable
         - CreditCardsTable
-        - Group14
         - ApiKeyIdMapTable
+        - ApiKeysTable
     Group8:
       Label: Development API Gateway Lambda Functions
       Members:
@@ -1630,6 +1715,7 @@ Metadata:
         - CreateTestUserFunction
         - InvokeRenewSubscriptionsFunction
         - PollAllPaymentsFunction
+        - ResetInvocationQuotaFunction
     Group10:
       Label: CloudWatch DLQ Alarms
       Members:
@@ -1685,7 +1771,7 @@ Metadata:
         - AutoScalingGroup
         - ALBListener
     Group16:
-      Label: Group16
+      Label: Paid Service
       Members:
         - Group13
         - Group15

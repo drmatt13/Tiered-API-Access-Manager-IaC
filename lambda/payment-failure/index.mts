@@ -56,7 +56,7 @@ const formatDate = (date: Date) => {
   return `${month}-${day}-${year}`;
 };
 
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 export const handler = async (event: SQSEvent) => {
   // Process each message in the SQS event

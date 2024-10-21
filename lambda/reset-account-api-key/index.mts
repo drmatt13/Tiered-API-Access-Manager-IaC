@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { JwtHeaderPayload } from "../../types/requestPayloads";
 import { ResetAccountApiKeyResponse } from "../../types/lambdaFunctionResponses";
 
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 const headers = {
   "Access-Control-Allow-Origin": "*",

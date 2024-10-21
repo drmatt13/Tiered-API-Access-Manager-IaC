@@ -14,7 +14,7 @@ import {
   PaymentTableItem,
 } from "../../types/tableItems";
 
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 const snsClient = new SNSClient({});
 
 // Function to format date as MM-DD-YYYY

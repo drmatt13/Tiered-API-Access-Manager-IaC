@@ -65,6 +65,10 @@ const serviceMap: Record<
     method: "GET",
     path: "/dev-poll-all-payments",
   },
+  ResetInvocationQuota: {
+    method: "GET",
+    path: "/dev-reset-invocation-quota",
+  },
 };
 
 const isTokenExpired = (token: string): boolean => {

@@ -14,7 +14,7 @@ import { EditAccountCreditCardResponse } from "../../types/lambdaFunctionRespons
 import { DynamoDBError } from "../../types/errors";
 import { ServicePayloadMap } from "../../types/BackendRequest";
 
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 function returnResult(statusCode: number, body: string) {
   return {

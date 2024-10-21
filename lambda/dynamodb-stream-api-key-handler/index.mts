@@ -16,13 +16,12 @@ import {
   GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
 
-import type {
-  APIKeysTableItem,
-  ApiKeyIdMapTableItem,
-} from "../../types/tableItems";
+import type { ApiKeyIdMapTableItem } from "../../types/tableItems";
 
-const apiGatewayClient = new APIGatewayClient({ region: "us-east-1" });
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const apiGatewayClient = new APIGatewayClient({
+  region: process.env.AWS_REGION,
+});
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
   for (const record of event.Records) {
@@ -66,7 +65,7 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
           const putItemCommand = new PutItemCommand({
             TableName: process.env.APIKEYIDMAPTABLE_TABLE_NAME,
             Item: {
-              user_id: { S: (newImage as APIKeysTableItem).user_id.S },
+              user_id: { S: (newImage as ApiKeyIdMapTableItem).user_id.S },
               apiKey_id: { S: newApiKey.id },
             },
           });
@@ -98,7 +97,7 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
             const getItemCommand = new GetItemCommand({
               TableName: process.env.APIKEYIDMAPTABLE_TABLE_NAME,
               Key: {
-                user_id: { S: (newImage as APIKeysTableItem).user_id.S },
+                user_id: { S: (newImage as ApiKeyIdMapTableItem).user_id.S },
               },
             });
 
@@ -181,7 +180,7 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
             const getItemCommand = new GetItemCommand({
               TableName: process.env.APIKEYIDMAPTABLE_TABLE_NAME,
               Key: {
-                user_id: { S: (oldImage as APIKeysTableItem).user_id.S },
+                user_id: { S: (oldImage as ApiKeyIdMapTableItem).user_id.S },
               },
             });
 
@@ -239,7 +238,9 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
             // Step 4: Update the API key ID in the mapping table
             const updateItemCommand = new UpdateItemCommand({
               TableName: process.env.APIKEYIDMAPTABLE_TABLE_NAME,
-              Key: { user_id: { S: (newImage as APIKeysTableItem).user_id.S } },
+              Key: {
+                user_id: { S: (newImage as ApiKeyIdMapTableItem).user_id.S },
+              },
               UpdateExpression: "SET apiKey_id = :newApiKeyId",
               ExpressionAttributeValues: {
                 ":newApiKeyId": { S: createdApiKey.id },
@@ -265,7 +266,7 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
             const getItemCommand = new GetItemCommand({
               TableName: process.env.APIKEYIDMAPTABLE_TABLE_NAME,
               Key: {
-                user_id: { S: (oldImage as APIKeysTableItem).user_id.S },
+                user_id: { S: (oldImage as ApiKeyIdMapTableItem).user_id.S },
               },
             });
 
@@ -290,7 +291,7 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
             const deleteItemCommand = new DeleteItemCommand({
               TableName: process.env.APIKEYIDMAPTABLE_TABLE_NAME,
               Key: {
-                user_id: { S: (oldImage as APIKeysTableItem).user_id.S },
+                user_id: { S: (oldImage as ApiKeyIdMapTableItem).user_id.S },
               },
             });
 

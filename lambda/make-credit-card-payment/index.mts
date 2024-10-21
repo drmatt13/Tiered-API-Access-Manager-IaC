@@ -7,7 +7,7 @@ import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { JwtHeaderPayload } from "../../types/requestPayloads";
 import { MakeCreditCardPaymentResponse } from "../../types/lambdaFunctionResponses";
 
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 const snsClient = new SNSClient({});
 
 const headers = {

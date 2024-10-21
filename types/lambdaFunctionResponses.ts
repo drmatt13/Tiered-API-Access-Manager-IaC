@@ -77,3 +77,9 @@ export type PollAllPaymentsResponse = {
   tableItems?: PaymentTableItem[];
   error?: DynamoDBError | Error;
 };
+
+export type ResetInvocationQuotaResponse = {
+  success: boolean;
+  apiKey?: string;
+  error?: DynamoDBError | Error;
+};

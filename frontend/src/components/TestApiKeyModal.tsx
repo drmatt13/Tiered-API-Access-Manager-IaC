@@ -71,6 +71,44 @@ const TestApiKeyModal = () => {
     setLoading(false);
   }, [invokeBackendService]);
 
+  const ResetInvocationQuota = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await invokeBackendService("ResetInvocationQuota");
+
+      if (!response.success) {
+        handleBackendServiceError(response.error);
+      }
+
+      const { apiKey } = response;
+
+      setSessionData((current) => ({
+        ...current,
+        key: apiKey,
+      }));
+
+      // reset everything
+      apiKeyTimeoutRef.current = null;
+      urlTimeoutRef.current = null;
+      setPolling(false);
+      setAnimationRunning(false);
+      badCountRef.current = 0;
+      isPollingRef.current = false;
+      resetFlagRef.current = true;
+      if (animationIntervalRef.current)
+        clearInterval(animationIntervalRef.current);
+      if (resetPollingTimeoutRef.current)
+        clearTimeout(resetPollingTimeoutRef.current);
+
+      alert("Invocation quota reset successfully.");
+    } catch (error) {
+      alert(
+        "Failed to reset invocation quota, fatal error, please contact support."
+      );
+    }
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     console.log("sessionData", sessionData);
   }, [sessionData]);
@@ -163,7 +201,7 @@ const TestApiKeyModal = () => {
       clipboardApiKey.destroy();
       clipboardUrl.destroy();
     };
-  }, [sessionData.key]);
+  }, [sessionData]);
 
   const animateRequest = useCallback(async () => {
     const parent = document.createElement("div");
@@ -525,16 +563,15 @@ const TestApiKeyModal = () => {
               )}
               <button
                 type="button"
-                onClick={toggleTestServer}
-                disabled={loading}
+                onClick={ResetInvocationQuota}
+                disabled={polling || animationRunning || activeRequestCount > 0}
                 className={`${
-                  loading
+                  polling || animationRunning || activeRequestCount > 0
                     ? "bg-gray-500 cursor-not-allowed border-black/20 text-white/60"
                     : "bg-purple-500/80 hover:bg-purple-500 border-purple-600/20 cursor-pointer"
                 } border flex-1 px-4 py-2 rounded transition-colors ease-out truncate text-xs sm:text-base`}
               >
                 Reset Invocation Quota
-                {/* Toggle Response Type */}
               </button>
             </div>
           </div>
@@ -543,16 +580,5 @@ const TestApiKeyModal = () => {
     </>
   );
 };
-
-function toggleTestServer() {
-  axios
-    .post("http://localhost:3000")
-    .then((response) => {
-      console.log(response.data);
-    })
-    .catch((error) => {
-      console.error("Error toggling server:", error);
-    });
-}
 
 export default TestApiKeyModal;

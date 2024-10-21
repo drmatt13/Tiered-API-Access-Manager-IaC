@@ -39,7 +39,7 @@ function formatDate(date: Date): string {
   return `${month}-${day}-${year}`;
 }
 
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 const headers = {
   "Access-Control-Allow-Origin": "*",

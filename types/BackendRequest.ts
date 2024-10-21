@@ -13,7 +13,8 @@ type Service =
   | "FormatAccount"
   | "InvokeRenewSubscriptions"
   | "ResetAccount"
-  | "PollAllPayments";
+  | "PollAllPayments"
+  | "ResetInvocationQuota";
 
 // return types
 import {
@@ -29,6 +30,7 @@ import {
   FormatAccountResponse,
   ResetAccountResponse,
   PollAllPaymentsResponse,
+  ResetInvocationQuotaResponse,
 } from "./lambdaFunctionResponses";
 
 type ServicePayloadMap = {
@@ -52,6 +54,7 @@ type ServicePayloadMap = {
   InvokeRenewSubscriptions: undefined;
   ResetAccount: undefined;
   PollAllPayments: undefined;
+  ResetInvocationQuota: undefined;
 };
 
 type ServiceResponseMap = {
@@ -70,6 +73,7 @@ type ServiceResponseMap = {
   InvokeRenewSubscriptions: InvokeRenewSubscriptionsResponse;
   ResetAccount: ResetAccountResponse;
   PollAllPayments: PollAllPaymentsResponse;
+  ResetInvocationQuota: ResetInvocationQuotaResponse;
 };
 
 // export the types

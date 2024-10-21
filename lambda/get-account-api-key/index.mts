@@ -7,7 +7,7 @@ import { APIKeysTableItem } from "../../types/tableItems";
 import { GetAccountApiKeyResponse } from "../../types/lambdaFunctionResponses";
 import { DynamoDBError } from "../../types/errors";
 
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 const headers = {
   "Access-Control-Allow-Origin": "*",

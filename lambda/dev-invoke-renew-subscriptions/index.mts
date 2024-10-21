@@ -6,7 +6,7 @@ import {
   SendMessageCommandInput,
 } from "@aws-sdk/client-sqs";
 
-const sqsClient = new SQSClient({ region: "us-east-1" });
+const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 
 const headers = {
   "Access-Control-Allow-Origin": "*",

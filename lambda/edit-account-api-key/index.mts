@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 // types
 import { APIKeysTableItem } from "../../types/tableItems";
 
-const dynamoClient = new DynamoDBClient({ region: "us-east-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 const extractSnsDataFromSqsRecord = (
   record: SQSRecord
