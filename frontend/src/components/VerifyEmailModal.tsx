@@ -193,6 +193,18 @@ const VerifyEmailModal = () => {
     // on component mount, focus on the first input field
     digitOneRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    // when press escape key, close the modal
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setModal("");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
     <>
       <div className="w-full flex flex-col items-center bg-gradient-to-br from-gray-900 to-blue-900/75 backdrop-blur-3xl">

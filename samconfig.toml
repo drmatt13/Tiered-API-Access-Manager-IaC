@@ -19,7 +19,7 @@ confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "api-access-manager"
 region = "us-east-1"
-parameter_overrides = "NotificationEmail=\"matthewsweeney001@gmail.com\" VpcCidr=\"192.168.0.0/16\" PublicSubnet1Cidr=\"192.168.1.0/24\" PublicSubnet2Cidr=\"192.168.2.0/24\" PrivateSubnet1Cidr=\"192.168.3.0/24\" PrivateSubnet2Cidr=\"192.168.4.0/24\" InstanceType=\"t2.micro\" AmiId=\"ami-06b21ccaeff8cd686\" PaidUsagePlanQuotaLimit=\"50000\" PaidUsagePlanBurstLimit=\"100\" PaidUsagePlanRateLimit=\"50\" FreeUsagePlanQuotaLimit=\"500\" FreeUsagePlanBurstLimit=\"10\" FreeUsagePlanRateLimit=\"5\""
+parameter_overrides = "NotificationEmail=\"testEmail@gmail.com\" VpcCidr=\"192.168.0.0/16\" PublicSubnet1Cidr=\"192.168.1.0/24\" PublicSubnet2Cidr=\"192.168.2.0/24\" PrivateSubnet1Cidr=\"192.168.3.0/24\" PrivateSubnet2Cidr=\"192.168.4.0/24\" InstanceType=\"t2.micro\" AmiId=\"ami-06b21ccaeff8cd686\" PaidUsagePlanQuotaLimit=\"50000\" PaidUsagePlanBurstLimit=\"100\" PaidUsagePlanRateLimit=\"50\" FreeUsagePlanQuotaLimit=\"500\" FreeUsagePlanBurstLimit=\"10\" FreeUsagePlanRateLimit=\"5\""
 image_repositories = []
 
 [default.package.parameters]

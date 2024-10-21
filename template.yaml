@@ -13,10 +13,6 @@ Parameters:
     Type: String
     Default: user@example.com
     Description: Email address to receive DLQ alarm notifications
-  Region:
-    Type: String
-    Default: us-east-1
-    Description: AWS region to deploy the application
   VpcCidr:
     Type: String
     Default: 192.168.0.0/16
