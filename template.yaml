@@ -108,15 +108,11 @@ Outputs:
     Description: API Key for the Throttled API Gateway
     Value: !Sub https://${ApiKeyThrottledApi}.execute-api.${AWS::Region}.amazonaws.com/prod
   FrontEndWebsiteURL:
-    Description: URL for the S3 bucket website
-    Value: !Sub http://${S3StaticHostingBucket}.s3-website-${AWS::Region}.amazonaws.com
-    Export:
-      Name: WebsiteURL
+    Description: URL for the CloudFront distribution serving the website
+    Value: !GetAtt S3WebsiteCloudFrontDistribution.DomainName
   BucketName:
     Description: Name of the S3 bucket
     Value: !Ref S3StaticHostingBucket
-    Export:
-      Name: BucketName
 
 Resources:
   # COGNITO --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1692,24 +1688,129 @@ Resources:
         BurstLimit: !Ref FreeUsagePlanBurstLimit
         RateLimit: !Ref FreeUsagePlanRateLimit
 
-  # S3 Bucket for Website Hosting --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  # S3 Bucket for Website Hosting + CloudFront ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  # S3 Bucket for static website hosting
   S3StaticHostingBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${AWS::StackName}-website-bucket
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: error.html
+      BucketName: !Sub ${AWS::StackName}-myawsbucket-${AWS::AccountId}
+
+  # CloudFront Distribution to serve the website via HTTPS
+  S3WebsiteCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2
+        Origins:
+          - DomainName: !Sub ${S3StaticHostingBucket}.s3.${AWS::Region}.amazonaws.com
+            Id: S3Origin
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref S3OriginAccessControl
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  # CloudFront Origin Access Control (OAC)
+  S3OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: S3OACForStaticWebsite
+        Description: Origin Access Control for S3 static website
+        SigningProtocol: sigv4
+        SigningBehavior: always
+        OriginAccessControlOriginType: s3
+
+  # S3 Bucket Policy allowing access only from CloudFront via OAC
   S3StaticHostingBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
       Bucket: !Ref S3StaticHostingBucket
       PolicyDocument:
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Principal: '*'
+            Principal:
+              Service: cloudfront.amazonaws.com
             Action: s3:GetObject
             Resource: !Sub arn:aws:s3:::${S3StaticHostingBucket}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${S3WebsiteCloudFrontDistribution}
+
+  # Custom Resource to allow S3 bucket to be deleted
+  EmptyS3BucketBeforeDeletionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/empty-s3-bucket-before-deletion
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          S3STATICHOSTINGBUCKET_BUCKET_NAME: !Ref S3StaticHostingBucket
+          S3STATICHOSTINGBUCKET_BUCKET_ARN: !GetAtt S3StaticHostingBucket.Arn
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:GetObjectAcl
+                - s3:GetObjectLegalHold
+                - s3:GetObjectRetention
+                - s3:GetObjectTorrent
+                - s3:GetObjectVersion
+                - s3:GetObjectVersionAcl
+                - s3:GetObjectVersionForReplication
+                - s3:GetObjectVersionTorrent
+                - s3:ListBucket
+                - s3:ListBucketMultipartUploads
+                - s3:ListBucketVersions
+                - s3:ListMultipartUploadParts
+                - s3:AbortMultipartUpload
+                - s3:DeleteObject
+                - s3:DeleteObjectVersion
+                - s3:PutObject
+                - s3:PutObjectLegalHold
+                - s3:PutObjectRetention
+                - s3:RestoreObject
+              Resource:
+                - !Sub arn:${AWS::Partition}:s3:::${S3StaticHostingBucket}
+                - !Sub arn:${AWS::Partition}:s3:::${S3StaticHostingBucket}/*
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.mts
+        External:
+          - '@aws-sdk/*'
+          - aws-sdk
+        Minify: false
+
+  # Custom Resource to allow S3 bucket to be deleted
+  EmptyS3BucketBeforeDeletionCustomResource:
+    Type: Custom::EmptyS3BucketBeforeDeletion
+    Properties:
+      Timeout: 30
+      ServiceToken: !GetAtt EmptyS3BucketBeforeDeletionFunction.Arn
+      BucketName: !Ref S3StaticHostingBucket
 
 Metadata:
   AWS::Composer::Groups:
@@ -1829,3 +1930,10 @@ Metadata:
       Members:
         - Group13
         - Group15
+    Group17:
+      Label: Frontend Website
+      Members:
+        - S3WebsiteCloudFrontDistribution
+        - S3OriginAccessControl
+        - EmptyS3BucketBeforeDeletionFunction
+        - S3StaticHostingBucket
