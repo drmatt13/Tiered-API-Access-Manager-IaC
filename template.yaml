@@ -97,7 +97,7 @@ Parameters:
   SESConfigurationSet:
     Type: String
     Default: None
-    Description: 'Optional: The name of the SES configuration set to use (if applicable)'
+    Description: 'Optional: The name of the SES configuration set to use (if applicable) or "None" if not using SES.'
   IncludePreSignUpTrigger:
     Type: String
     Default: 'false'

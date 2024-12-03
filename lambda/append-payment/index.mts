@@ -120,7 +120,7 @@ export const handler = async (event: SQSEvent) => {
       );
 
       const email = await getUserEmail(user_id);
-      if (email && process.env.SESConfigurationSet) {
+      if (email && process.env.SESConfigurationSet !== "None") {
         await sesClient.send(
           new SendEmailCommand({
             Destination: {

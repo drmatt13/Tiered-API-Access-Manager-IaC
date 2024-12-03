@@ -123,7 +123,7 @@ export const handler = async (event: SQSEvent) => {
     const { user_id, noCard, recurring } = extractSnsDataFromSqsRecord(record);
 
     const email = await getUserEmail(user_id || "");
-    if (email && process.env.SESConfigurationSet) {
+    if (email && process.env.SESConfigurationSet !== "None") {
       try {
         if (noCard) {
           console.log("API KEY HAS EXPIRED for user_id: ", user_id);
