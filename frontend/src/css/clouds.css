@@ -166,7 +166,7 @@ body {
 
 @media only screen
   and (min-width: 280px)
-  and (max-width: 767px) {
+  and (max-width: 975px) {
     #foglayer_01 .image01, #foglayer_01 .image02,
     #foglayer_02 .image01, #foglayer_02 .image02,
     #foglayer_03 .image01, #foglayer_03 .image02 {

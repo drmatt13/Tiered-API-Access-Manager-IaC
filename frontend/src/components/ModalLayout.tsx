@@ -21,7 +21,7 @@ interface ModalLayoutProps {
 const ModalLayout = ({ children }: ModalLayoutProps) => {
   const location = useLocation();
 
-  const [modal, setModal] = useState("testApiKey");
+  const [modal, setModal] = useState("");
   const [closing, setClosing] = useState(false);
 
   const closeModal = useCallback(() => {

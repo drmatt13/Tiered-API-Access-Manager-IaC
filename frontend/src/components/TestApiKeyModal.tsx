@@ -17,6 +17,13 @@ const API_ENDPOINT = import.meta.env.VITE_ApiKeyThrottledApi as string;
 // const API_ENDPOINT = "http://MyALB-2076243712.us-east-1.elb.amazonaws.com";
 
 const TestApiKeyModal = () => {
+  const {
+    sessionData,
+    invokeBackendService,
+    handleBackendServiceError,
+    setSessionData,
+  } = useContext(SessionContext);
+
   const apiImageDivRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -26,6 +33,9 @@ const TestApiKeyModal = () => {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const apiKeyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const urlTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // animation
+
   const animationContainerRef = useRef<HTMLDivElement | null>(null);
   const rangeValueRef = useRef<number>(1);
   const [rangeValue, setRangeValue] = useState(1);
@@ -39,12 +49,7 @@ const TestApiKeyModal = () => {
   const isMountedRef = useRef(true);
   const [activeRequestCount, setActiveRequestCount] = useState(0);
   const activeRequestCountRef = useRef(0);
-  const {
-    sessionData,
-    invokeBackendService,
-    handleBackendServiceError,
-    setSessionData,
-  } = useContext(SessionContext);
+  const [draining, setDraining] = useState(false);
 
   const getUsersApiKeyData = useCallback(async () => {
     setLoading(true);
@@ -96,6 +101,7 @@ const TestApiKeyModal = () => {
       badCountRef.current = 0;
       isPollingRef.current = false;
       resetFlagRef.current = true;
+      setDraining(false);
       if (animationIntervalRef.current)
         clearInterval(animationIntervalRef.current);
       if (resetPollingTimeoutRef.current)
@@ -113,42 +119,6 @@ const TestApiKeyModal = () => {
   useEffect(() => {
     console.log("sessionData", sessionData);
   }, [sessionData]);
-
-  const refreshApiKey = useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
-
-    try {
-      const apiKeyRefreshDelay = new Promise((resolve) =>
-        setTimeout(resolve, 2000)
-      );
-      const responsePromise = invokeBackendService("GetAccountApiKey");
-
-      const [response] = await Promise.all([
-        responsePromise,
-        apiKeyRefreshDelay,
-      ]);
-
-      if (!response.success) {
-        handleBackendServiceError(response.error);
-      }
-
-      const { apiKey, tier } = response.tableItem ?? {};
-
-      setSessionData((current) => ({
-        ...current,
-        key: apiKey?.S ?? "",
-        tier: tier?.S ?? "free",
-      }));
-    } catch (error) {
-      alert(
-        "Failed to refresh account api key, fatal error, please contact support."
-      );
-      console.error("Failed to refresh API key:", error);
-    }
-
-    setLoading(false);
-  }, [loading, invokeBackendService, handleBackendServiceError]);
 
   useEffect(() => {
     if (initialLoad && !sessionData.key) {
@@ -204,6 +174,19 @@ const TestApiKeyModal = () => {
     };
   }, [sessionData]);
 
+  useEffect(() => {
+    // console.log("draining", draining);
+    // console.log("activeRequestCount", activeRequestCount);
+    if (draining && activeRequestCount === 0) {
+      // console.log("draining done");
+      setDraining(false);
+      isPollingRef.current = true;
+      poll();
+    }
+  }, [draining, activeRequestCount]);
+
+  // ANIMATION
+
   const animateRequest = useCallback(async () => {
     const parent = document.createElement("div");
     parent.classList.add(
@@ -245,9 +228,9 @@ const TestApiKeyModal = () => {
     return promise;
   }, []);
 
-  useEffect(() => {
-    console.log("activeRequestCount", activeRequestCount);
-  }, [activeRequestCount]);
+  // useEffect(() => {
+  //   console.log("activeRequestCount", activeRequestCount);
+  // }, [activeRequestCount]);
 
   const animateResponse = useCallback((success: boolean) => {
     const parent = document.createElement("div");
@@ -306,12 +289,8 @@ const TestApiKeyModal = () => {
     setAnimationRunning(false);
     setPolling(true);
     isPollingRef.current = false;
-    // if (activeRequestCountRef.current > 1) return;
     badCountRef.current = 0;
-    resetPollingTimeoutRef.current = setTimeout(() => {
-      isPollingRef.current = true;
-      poll();
-    }, 2000);
+    setDraining(true);
   }, []);
 
   const processRequestsAtInterval = useCallback(() => {
@@ -381,7 +360,7 @@ const TestApiKeyModal = () => {
       async ([axiosResult]) => {
         if (!isMountedRef.current) return;
 
-        console.log("axiosResult", axiosResult.status);
+        // console.log("axiosResult", axiosResult.status);
 
         const requestSuccess = axiosResult.status === "fulfilled";
         await animateResponse(requestSuccess);
@@ -409,11 +388,49 @@ const TestApiKeyModal = () => {
     resetFlagRef.current = true;
     badCountRef.current = 0;
     isPollingRef.current = false;
+    setDraining(false);
     if (animationIntervalRef.current)
       clearInterval(animationIntervalRef.current);
     if (resetPollingTimeoutRef.current)
       clearTimeout(resetPollingTimeoutRef.current);
   }, []);
+
+  const refreshApiKey = useCallback(async () => {
+    if (loading) return;
+    setLoading(true);
+    trueStop();
+
+    try {
+      const apiKeyRefreshDelay = new Promise((resolve) =>
+        setTimeout(resolve, 2000)
+      );
+      const responsePromise = invokeBackendService("GetAccountApiKey");
+
+      const [response] = await Promise.all([
+        responsePromise,
+        apiKeyRefreshDelay,
+      ]);
+
+      if (!response.success) {
+        handleBackendServiceError(response.error);
+      }
+
+      const { apiKey, tier } = response.tableItem ?? {};
+
+      setSessionData((current) => ({
+        ...current,
+        key: apiKey?.S ?? "",
+        tier: tier?.S ?? "free",
+      }));
+    } catch (error) {
+      alert(
+        "Failed to refresh account api key, fatal error, please contact support."
+      );
+      console.error("Failed to refresh API key:", error);
+    }
+
+    setLoading(false);
+  }, [loading, invokeBackendService, handleBackendServiceError, trueStop]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -428,20 +445,27 @@ const TestApiKeyModal = () => {
   return (
     <>
       <div className="w-full flex flex-col pt-12 pb-6 items-center bg-gradient-to-br from-gray-900 to-purple-900/75 backdrop-blur-3xl">
-        <div
+        <button
           className={`${
-            loading ? "cursor-not-allowed" : "cursor-pointer"
+            loading || activeRequestCount > 0 || polling || animationRunning
+              ? "cursor-not-allowed"
+              : "cursor-pointer"
           } absolute top-1.5 left-[7px] aspect-square h-6 text-center group`}
           onClick={refreshApiKey}
+          disabled={
+            loading || activeRequestCount > 0 || polling || animationRunning
+          }
         >
           <i
             className={`${
               loading
                 ? "text-green-400 animate-spin duration-150"
-                : "text-white/50 group-hover:text-white/80 duration-300"
+                : activeRequestCount > 0 || polling || animationRunning
+                ? "text-white/50"
+                : `text-white/50 group-hover:text-white/80 duration-300`
             } fa-solid fa-arrows-rotate text-xl transition-colors ease-out -mt-[1px]`}
           />
-        </div>
+        </button>
         <div className="px-5 relative flex flex-col items-left w-96 max-w-[90vw]">
           <div
             className={`${
