@@ -1,8 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: |
-  Description for the application.
+Description: >
+  The Tiered API Access Manager automates the creation of a scalable, subscription-based API platform with tiered access and integrated user management. 
+  This template provisions essential backend infrastructure, including a VPC, subnets, Auto Scaling Groups with EC2 instances, an Application Load Balancer, 
+  and DynamoDB tables for user and API key management. It features API Gateway configurations for throttling and access control, 
+  integrated with AWS Cognito for authentication and authorization. 
+
+  The stack also sets up a frontend React-based API key management app hosted on S3 and served via a CloudFront CDN for optimized delivery. 
+  Additional resources include scheduled jobs for subscription renewal, asynchronous processing with SQS and DLQs, and CloudWatch monitoring with alarms for failure notifications.
+
+  Designed to streamline infrastructure deployment, this project supports secure and scalable API operations, enabling developers to focus on delivering business value.
 
 Globals:
   Function:
@@ -72,15 +80,15 @@ Parameters:
     Description: The rate limit for the Paid plan.
   FreeUsagePlanQuotaLimit:
     Type: Number
-    Default: "500" # Changed to string
+    Default: "200" # Changed to string
     Description: The maximum number of requests for the Free plan per day.
   FreeUsagePlanBurstLimit:
     Type: Number
-    Default: "10" # Changed to string
+    Default: "20" # Changed to string
     Description: The burst limit for the Free plan.
   FreeUsagePlanRateLimit:
     Type: Number
-    Default: "5" # Changed to string
+    Default: "10" # Changed to string
     Description: The rate limit for the Free plan.
   CloudWatchAlarmNotificationEmail:
     Type: String
@@ -104,8 +112,8 @@ Conditions:
     - 'true'
 
 Outputs:
-  FrontEndApiUrl:
-    Description: API Gateway endpoint URL for Prod stage
+  ApiKeyManagerBackendUrl:
+    Description: API Gateway endpoint URL for the React App API Key Manager
     Value: !Sub https://${FrontEndApi}.execute-api.${AWS::Region}.amazonaws.com/prod
   CognitoUserPoolId:
     Description: User Pool ID
@@ -113,10 +121,10 @@ Outputs:
   CognitoClientId:
     Description: User Pool Client ID
     Value: !Ref UserPoolClient
-  ApiKeyThrottledApi:
+  ManagedApi:
     Description: API Key for the Throttled API Gateway
     Value: !Sub https://${ApiKeyThrottledApi}.execute-api.${AWS::Region}.amazonaws.com/prod
-  FrontEndWebsiteURL:
+  CloudFrontURL:
     Description: URL for the CloudFront distribution serving the website
     Value: !GetAtt S3WebsiteCloudFrontDistribution.DomainName
   BucketName:

@@ -13,7 +13,7 @@ import apiImage from "../assets/images/api.png";
 // css
 import "../css/slider.css";
 
-const API_ENDPOINT = import.meta.env.VITE_ApiKeyThrottledApi as string;
+const API_ENDPOINT = import.meta.env.VITE_ManagedApi as string;
 // const API_ENDPOINT = "http://MyALB-2076243712.us-east-1.elb.amazonaws.com";
 
 const TestApiKeyModal = () => {
