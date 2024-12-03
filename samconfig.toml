@@ -1,35 +1,10 @@
-# More information about the configuration file can be found here:
-# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
 version = 0.1
-
-[default]
-[default.global.parameters]
-stack_name = "api-access-manager"
-
-[default.build.parameters]
-cached = true
-parallel = true
-
-[default.validate.parameters]
-lint = true
-
 [default.deploy.parameters]
-capabilities = "CAPABILITY_IAM"
-confirm_changeset = true
+stack_name = "sam-app"
 resolve_s3 = true
-s3_prefix = "api-access-manager"
+s3_prefix = "sam-app"
 region = "us-east-1"
-parameter_overrides = "VpcCidr=\"192.168.0.0/16\" PublicSubnet1Az=\"us-east-1a\" PublicSubnet2Az=\"us-east-1b\" PrivateSubnet1Az=\"us-east-1a\" PrivateSubnet2Az=\"us-east-1b\" PublicSubnet1Cidr=\"192.168.1.0/24\" PublicSubnet2Cidr=\"192.168.2.0/24\" PrivateSubnet1Cidr=\"192.168.3.0/24\" PrivateSubnet2Cidr=\"192.168.4.0/24\" AmiId=\"ami-06b21ccaeff8cd686\" InstanceType=\"t2.micro\" PaidUsagePlanQuotaLimit=\"50000\" PaidUsagePlanBurstLimit=\"100\" PaidUsagePlanRateLimit=\"50\" FreeUsagePlanQuotaLimit=\"500\" FreeUsagePlanBurstLimit=\"10\" FreeUsagePlanRateLimit=\"5\" NotificationEmail=\"testEmail@gmail.com\" IncludePreSignUpTrigger=\"false\""
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "VpcCidr=\"192.168.0.0/16\" PublicSubnet1Az=\"us-east-1a\" PublicSubnet2Az=\"us-east-1b\" PrivateSubnet1Az=\"us-east-1a\" PrivateSubnet2Az=\"us-east-1b\" PublicSubnet1Cidr=\"192.168.1.0/24\" PublicSubnet2Cidr=\"192.168.2.0/24\" PrivateSubnet1Cidr=\"192.168.3.0/24\" PrivateSubnet2Cidr=\"192.168.4.0/24\" AmiId=\"ami-06b21ccaeff8cd686\" EC2UserData=\"IyEvYmluL2Jhc2gKY3VybCAtc0wgaHR0cHM6Ly9ycG0ubm9kZXNvdXJjZS5jb20vc2V0dXBfMTgueCB8IHN1ZG8gYmFzaCAtCnN1ZG8gZG5mIGluc3RhbGwgbm9kZWpzIC15CmNkIC9ob21lL2VjMi11c2VyCm1rZGlyIHRlc3QtZXhwcmVzcy1zZXJ2ZXIKY2QgdGVzdC1leHByZXNzLXNlcnZlcgpzdWRvIG5wbSBpbml0IC15CnN1ZG8gbnBtIGluc3RhbGwgZXhwcmVzcyBjb3JzCmNhdCA8PCAnRU9GJyA+IHNlcnZlci5qcwpjb25zdCBleHByZXNzID0gcmVxdWlyZSgiZXhwcmVzcyIpOwpjb25zdCBjb3JzID0gcmVxdWlyZSgiY29ycyIpOwpjb25zdCBhcHAgPSBleHByZXNzKCk7CmFwcC51c2UoY29ycyh7IG9yaWdpbjogIioiIH0pKTsKYXBwLmdldCgiLyIsIChyZXEsIHJlcykgPT4gewogIHJlcy5qc29uKHsgc3VjY2VzczogdHJ1ZSwgbWVzc2FnZTogIkhlbGxvIFdvcmxkIiB9KTsKfSk7CmFwcC5nZXQoIi9oZWFsdGgiLCAocmVxLCByZXMpID0+IHsKICByZXMuc3RhdHVzKDIwMCkuanNvbih7IHN1Y2Nlc3M6IHRydWUsIG1lc3NhZ2U6ICJIZWFsdGggY2hlY2sgcGFzc2VkIiB9KTsKfSk7CmFwcC5saXN0ZW4oODAsICgpID0+IHsKICBjb25zb2xlLmxvZygiU2VydmVyIGlzIHJ1bm5pbmcgb24gcG9ydCA4MCIpOwp9KTsKRU9GCnN1ZG8gbm9kZSBzZXJ2ZXIuanM=\" InstanceType=\"t2.micro\" PaidUsagePlanQuotaLimit=\"50000\" PaidUsagePlanBurstLimit=\"100\" PaidUsagePlanRateLimit=\"50\" FreeUsagePlanQuotaLimit=\"500\" FreeUsagePlanBurstLimit=\"10\" FreeUsagePlanRateLimit=\"5\" CloudWatchAlarmNotificationEmail=\"user@example.com\" SESConfigurationSet=\"None\" IncludePreSignUpTrigger=\"false\""
 image_repositories = []
-
-[default.package.parameters]
-resolve_s3 = true
-
-[default.sync.parameters]
-watch = true
-
-[default.local_start_api.parameters]
-warm_containers = "EAGER"
-
-[default.local_start_lambda.parameters]
-warm_containers = "EAGER"

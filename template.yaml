@@ -49,38 +49,47 @@ Parameters:
     Type: String
     Default: ami-06b21ccaeff8cd686
     Description: AMI ID for the EC2 instances.
+  EC2UserData:
+    Type: String
+    Default: IyEvYmluL2Jhc2gKY3VybCAtc0wgaHR0cHM6Ly9ycG0ubm9kZXNvdXJjZS5jb20vc2V0dXBfMTgueCB8IHN1ZG8gYmFzaCAtCnN1ZG8gZG5mIGluc3RhbGwgbm9kZWpzIC15CmNkIC9ob21lL2VjMi11c2VyCm1rZGlyIHRlc3QtZXhwcmVzcy1zZXJ2ZXIKY2QgdGVzdC1leHByZXNzLXNlcnZlcgpzdWRvIG5wbSBpbml0IC15CnN1ZG8gbnBtIGluc3RhbGwgZXhwcmVzcyBjb3JzCmNhdCA8PCAnRU9GJyA+IHNlcnZlci5qcwpjb25zdCBleHByZXNzID0gcmVxdWlyZSgiZXhwcmVzcyIpOwpjb25zdCBjb3JzID0gcmVxdWlyZSgiY29ycyIpOwpjb25zdCBhcHAgPSBleHByZXNzKCk7CmFwcC51c2UoY29ycyh7IG9yaWdpbjogIioiIH0pKTsKYXBwLmdldCgiLyIsIChyZXEsIHJlcykgPT4gewogIHJlcy5qc29uKHsgc3VjY2VzczogdHJ1ZSwgbWVzc2FnZTogIkhlbGxvIFdvcmxkIiB9KTsKfSk7CmFwcC5nZXQoIi9oZWFsdGgiLCAocmVxLCByZXMpID0+IHsKICByZXMuc3RhdHVzKDIwMCkuanNvbih7IHN1Y2Nlc3M6IHRydWUsIG1lc3NhZ2U6ICJIZWFsdGggY2hlY2sgcGFzc2VkIiB9KTsKfSk7CmFwcC5saXN0ZW4oODAsICgpID0+IHsKICBjb25zb2xlLmxvZygiU2VydmVyIGlzIHJ1bm5pbmcgb24gcG9ydCA4MCIpOwp9KTsKRU9GCnN1ZG8gbm9kZSBzZXJ2ZXIuanM=
+    Description: User data for the EC2 instances. Must be base64 encoded. Leave
+      default to use the test Node.js Express server.
   InstanceType:
     Type: String
     Default: t2.micro
     Description: EC2 instance type.
   PaidUsagePlanQuotaLimit:
     Type: Number
-    Default: '50000'
+    Default: "50000" # Changed to string
     Description: The maximum number of requests for the Paid plan per day.
   PaidUsagePlanBurstLimit:
     Type: Number
-    Default: '100'
+    Default: "100" # Changed to string
     Description: The burst limit for the Paid plan.
   PaidUsagePlanRateLimit:
     Type: Number
-    Default: '50'
+    Default: "50" # Changed to string
     Description: The rate limit for the Paid plan.
   FreeUsagePlanQuotaLimit:
     Type: Number
-    Default: '500'
+    Default: "500" # Changed to string
     Description: The maximum number of requests for the Free plan per day.
   FreeUsagePlanBurstLimit:
     Type: Number
-    Default: '10'
+    Default: "10" # Changed to string
     Description: The burst limit for the Free plan.
   FreeUsagePlanRateLimit:
     Type: Number
-    Default: '5'
+    Default: "5" # Changed to string
     Description: The rate limit for the Free plan.
-  NotificationEmail:
+  CloudWatchAlarmNotificationEmail:
     Type: String
     Default: user@example.com
     Description: Email address to receive DLQ alarm notifications
+  SESConfigurationSet:
+    Type: String
+    Default: None
+    Description: 'Optional: The name of the SES configuration set to use (if applicable)'
   IncludePreSignUpTrigger:
     Type: String
     Default: 'false'
@@ -1194,11 +1203,18 @@ Resources:
         Variables:
           PAYMENTSTABLE_TABLE_NAME: !Ref PaymentsTable
           PAYMENTSTABLE_TABLE_ARN: !GetAtt PaymentsTable.Arn
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          USERPOOL_USER_POOL_ID: !Ref UserPool
+          USERPOOL_USER_POOL_ARN: !GetAtt UserPool.Arn
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PaymentsTable
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt PaymentSuccessTopic.TopicName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:ListUsers
+              Resource: !GetAtt UserPool.Arn
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -1220,6 +1236,18 @@ Resources:
           Properties:
             Queue: !GetAtt PaymentFailureQueue.Arn
             BatchSize: 1
+      Environment:
+        Variables:
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          USERPOOL_USER_POOL_ID: !Ref UserPool
+          USERPOOL_USER_POOL_ARN: !GetAtt UserPool.Arn
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:ListUsers
+              Resource: !GetAtt UserPool.Arn
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -1287,7 +1315,7 @@ Resources:
     Properties:
       Protocol: email
       TopicArn: !Ref CloudWatchAlarmTopic
-      Endpoint: !Ref NotificationEmail
+      Endpoint: !Ref CloudWatchAlarmNotificationEmail
   EditAccountApiKeyDLQAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1543,37 +1571,7 @@ Resources:
         InstanceType: !Ref InstanceType
         SecurityGroupIds:
           - !Ref EC2SecurityGroup
-        UserData: !Base64 |
-          #!/bin/bash
-          # Install Node.js
-          curl -sL https://rpm.nodesource.com/setup_18.x | sudo bash -
-          sudo dnf install nodejs -y
-          # Navigate to the home directory
-          cd /home/ec2-user
-          # Create a directory for the test Node.js Express server
-          mkdir test-express-server
-          cd test-express-server
-          # Initialize the Node.js project and install dependencies
-          sudo npm init -y
-          sudo npm install express cors
-          # Create the server.js file
-          cat << 'EOF' > server.js
-          const express = require("express");
-          const cors = require("cors");
-          const app = express();
-          app.use(cors({ origin: "*" }));
-          app.get("/", (req, res) => {
-            res.json({ success: true, message: "Hello World" });
-          });
-          app.get("/health", (req, res) => {
-            res.status(200).json({ success: true, message: "Health check passed" });
-          });
-          app.listen(80, () => {
-            console.log("Server is running on port 80");
-          });
-          EOF
-          # Start the server
-          sudo node server.js
+        UserData: !Ref EC2UserData
 
   # Create Auto Scaling Group
   AutoScalingGroup:

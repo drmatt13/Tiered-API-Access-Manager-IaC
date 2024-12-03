@@ -38,6 +38,7 @@ const TestApiKeyModal = () => {
   const resetPollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
   const [activeRequestCount, setActiveRequestCount] = useState(0);
+  const activeRequestCountRef = useRef(0);
   const {
     sessionData,
     invokeBackendService,
@@ -287,7 +288,10 @@ const TestApiKeyModal = () => {
           durationArray[Math.floor(Math.random() * durationArray.length)],
         complete: () => {
           animationContainerRef.current?.removeChild(parent);
-          setActiveRequestCount((prev) => prev - 1);
+          setActiveRequestCount((prev) => {
+            activeRequestCountRef.current = prev - 1;
+            return prev - 1;
+          });
           resolve(undefined);
         },
       });
@@ -301,12 +305,13 @@ const TestApiKeyModal = () => {
       clearInterval(animationIntervalRef.current);
     setAnimationRunning(false);
     setPolling(true);
-    badCountRef.current = 0;
     isPollingRef.current = false;
+    // if (activeRequestCountRef.current > 1) return;
+    badCountRef.current = 0;
     resetPollingTimeoutRef.current = setTimeout(() => {
       isPollingRef.current = true;
       poll();
-    }, 1000);
+    }, 2000);
   }, []);
 
   const processRequestsAtInterval = useCallback(() => {
@@ -324,7 +329,10 @@ const TestApiKeyModal = () => {
           "x-api-key": sessionData.key,
         },
       });
-      setActiveRequestCount((prev) => prev + 1);
+      setActiveRequestCount((prev) => {
+        activeRequestCountRef.current = prev + 1;
+        return prev + 1;
+      });
       const animateRequestPromise = animateRequest();
 
       axiosPromise
@@ -335,6 +343,7 @@ const TestApiKeyModal = () => {
           badCountRef.current += 1;
           if (badCountRef.current > 4) {
             resetFlagRef.current = true;
+            // console.log("resetting polling", activeRequestCount);
             resetPolling();
           }
         });
@@ -362,7 +371,10 @@ const TestApiKeyModal = () => {
         "x-api-key": sessionData.key,
       },
     });
-    setActiveRequestCount((prev) => prev + 1);
+    setActiveRequestCount((prev) => {
+      activeRequestCountRef.current = prev + 1;
+      return prev + 1;
+    });
     const animateRequestPromise = animateRequest();
 
     Promise.allSettled([axiosPromise, animateRequestPromise]).then(
