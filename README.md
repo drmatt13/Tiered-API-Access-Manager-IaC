@@ -1,9 +1,9 @@
-
 # Tiered API Access Manager
 
 The **Tiered API Access Manager** automates the deployment of a scalable, subscription-based API platform with integrated user management and tiered access control. This solution simplifies infrastructure setup and enables developers to focus on delivering business value while leveraging AWS best practices.
 
 ## Features
+
 - **Scalable Backend Infrastructure**: Automatically provisions a VPC, subnets, Auto Scaling Groups with EC2 instances, and an Application Load Balancer.
 - **API Management**: API Gateway configurations for throttling, tiered access control, and integration with AWS Cognito for authentication and authorization.
 - **Frontend API Key Manager**: A React-based web application hosted on S3 and served via CloudFront for optimal delivery.
@@ -13,6 +13,7 @@ The **Tiered API Access Manager** automates the deployment of a scalable, subscr
 ---
 
 ## Prerequisites
+
 - **AWS CLI**: Installed and configured with appropriate permissions.
 - **AWS SAM CLI**: Installed for building and deploying the stack.
 - **Node.js**: Installed for running the frontend React app.
@@ -22,6 +23,7 @@ The **Tiered API Access Manager** automates the deployment of a scalable, subscr
 ## Deployment Steps
 
 ### Backend Deployment
+
 1. **Build the SAM project**:
    ```bash
    sam build
@@ -33,13 +35,14 @@ The **Tiered API Access Manager** automates the deployment of a scalable, subscr
    - Follow the prompts to provide stack configuration details.
 
 ### Frontend Deployment
+
 3. Navigate to the frontend directory:
    ```bash
    cd frontend
    ```
 4. Create an `.env` file with the outputs from the deployed CloudFormation stack:
    ```
-   VITE_ManagedApi=<ManagedApi>
+   VITE_ManagedApiURL=<ManagedApiURL>
    VITE_ApiKeyManagerBackendUrl=<ApiKeyManagerBackendUrl>
    VITE_UserPoolId=<UserPoolId>
    VITE_UserPoolClientId=<UserPoolClientId>
@@ -60,7 +63,9 @@ The **Tiered API Access Manager** automates the deployment of a scalable, subscr
 ---
 
 ## Cleanup
+
 To remove all resources created by the stack, run:
+
 ```bash
 aws cloudformation delete-stack --stack-name <stack-name>
 ```
@@ -68,14 +73,17 @@ aws cloudformation delete-stack --stack-name <stack-name>
 ---
 
 ## Accessing the Application
+
 The frontend website will be accessible at the `CloudFrontURL` output generated during the deployment process.
 
 ---
 
 ## Outputs
+
 Key outputs from the CloudFormation stack:
+
 - **CloudFrontURL**: The URL of the deployed frontend website.
-- **ManagedApi**: The URL of the API Gateway with managed API access.
+- **ManagedApiURL**: The URL of the API Gateway with managed API access.
 - **ApiKeyManagerBackendUrl**: Backend URL for the API Key Manager.
 - **UserPoolId**: Cognito User Pool ID.
 - **UserPoolClientId**: Cognito User Pool Client ID.
@@ -83,4 +91,5 @@ Key outputs from the CloudFormation stack:
 ---
 
 ## License
+
 This project is open source and available under the [MIT License](LICENSE).

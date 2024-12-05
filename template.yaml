@@ -121,8 +121,8 @@ Outputs:
   CognitoClientId:
     Description: User Pool Client ID
     Value: !Ref UserPoolClient
-  ManagedApi:
-    Description: API Key for the Throttled API Gateway
+  ManagedApiURL:
+    Description: API Gateway endpoint URL for the Managed API
     Value: !Sub https://${ApiKeyThrottledApi}.execute-api.${AWS::Region}.amazonaws.com/prod
   CloudFrontURL:
     Description: URL for the CloudFront distribution serving the website
