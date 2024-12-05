@@ -118,7 +118,7 @@ Outputs:
   CognitoUserPoolId:
     Description: User Pool ID
     Value: !Ref UserPool
-  CognitoClientId:
+  CognitoUserPoolClientId:
     Description: User Pool Client ID
     Value: !Ref UserPoolClient
   ManagedApiURL:

@@ -44,8 +44,8 @@ The **Tiered API Access Manager** automates the deployment of a scalable, subscr
    ```
    VITE_ManagedApiURL=<ManagedApiURL>
    VITE_ApiKeyManagerBackendUrl=<ApiKeyManagerBackendUrl>
-   VITE_UserPoolId=<UserPoolId>
-   VITE_UserPoolClientId=<UserPoolClientId>
+   VITE_CognitoUserPoolId=<CognitoUserPoolId>
+   VITE_CognitoUserPoolClientId=<CognitoUserPoolClientId>
    ```
 5. Install dependencies:
    ```bash
@@ -85,8 +85,8 @@ Key outputs from the CloudFormation stack:
 - **CloudFrontURL**: The URL of the deployed frontend website.
 - **ManagedApiURL**: The URL of the API Gateway with managed API access.
 - **ApiKeyManagerBackendUrl**: Backend URL for the API Key Manager.
-- **UserPoolId**: Cognito User Pool ID.
-- **UserPoolClientId**: Cognito User Pool Client ID.
+- **CognitoUserPoolId**: Cognito User Pool ID.
+- **CognitoUserPoolClientId**: Cognito User Pool Client ID.
 
 ---
 

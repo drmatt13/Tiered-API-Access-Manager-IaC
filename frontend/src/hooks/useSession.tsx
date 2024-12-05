@@ -19,8 +19,8 @@ import type {
 const API_ENDPOINT = import.meta.env.VITE_ApiKeyManagerBackendUrl as string;
 
 const poolData = {
-  UserPoolId: import.meta.env.VITE_UserPoolId as string,
-  ClientId: import.meta.env.VITE_UserPoolClientId as string,
+  UserPoolId: import.meta.env.VITE_CognitoUserPoolId as string,
+  ClientId: import.meta.env.VITE_CognitoUserPoolClientId as string,
 };
 
 const userPool = new CognitoUserPool(poolData);
